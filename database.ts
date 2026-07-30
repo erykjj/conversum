@@ -40,12 +40,13 @@ export class IndexDatabase {
             });
             let dbData: Uint8Array | null = null;
             try {
+                const configDir = this.plugin.app.vault.configDir;
                 const fileExists = await this.plugin.app.vault.adapter.exists(
-                    `.obsidian/plugins/conversum/${DB_NAME}`
+                    `${configDir}/plugins/conversum/${DB_NAME}`
                 );
                 if (fileExists) {
                     const fileContent = await this.plugin.app.vault.adapter.readBinary(
-                        `.obsidian/plugins/conversum/${DB_NAME}`
+                        `${configDir}/plugins/conversum/${DB_NAME}`
                     );
                     dbData = new Uint8Array(fileContent);
                 }
@@ -206,7 +207,7 @@ export class IndexDatabase {
                     data.occurrenceCounts.set(filePath, currentCount + 1);
                 }
 
-                for (const [rangeKey, data] of refMap) {
+                for (const [, data] of refMap) {
                     const files: {path: string, occurrences: number}[] = [];
                     let totalOccurrences = 0;
                     for (const [filePath, count] of data.occurrenceCounts) {
@@ -216,11 +217,12 @@ export class IndexDatabase {
                     files.sort((a, b) => a.path.localeCompare(b.path));
                     data.entry.files = files;
                     data.entry.totalOccurrences = totalOccurrences;
-                    this.data.references[rangeKey] = data.entry;
+                    this.data.references[data.entry.startBcv + '-' + data.entry.endBcv] = data.entry;
                     for (const filePath of data.filePaths) {
+                        const key = data.entry.startBcv + '-' + data.entry.endBcv;
                         if (this.data.fileCache[filePath]) {
-                            if (!this.data.fileCache[filePath].references.includes(rangeKey)) {
-                                this.data.fileCache[filePath].references.push(rangeKey);
+                            if (!this.data.fileCache[filePath].references.includes(key)) {
+                                this.data.fileCache[filePath].references.push(key);
                             }
                         }
                     }
@@ -244,8 +246,9 @@ export class IndexDatabase {
                 ['lastUpdated', String(this.data.lastUpdated)]
             );
             const dbData = this.db.export();
+            const configDir = this.plugin.app.vault.configDir;
             await this.plugin.app.vault.adapter.writeBinary(
-                `.obsidian/plugins/conversum/${DB_NAME}`,
+                `${configDir}/plugins/conversum/${DB_NAME}`,
                 dbData as any
             );
         } catch (e) {
@@ -691,7 +694,7 @@ export class IndexDatabase {
                 results.push([rangeKey, entry]);
             }
             return results;
-        } catch (e) {
+        } catch {
             return Object.entries(this.data.references);
         }
     }
@@ -776,7 +779,7 @@ export class IndexDatabase {
             }
 
             for (const [rangeKey, data] of entryMap) {
-                const { bookId, chapter, startBcv, endBcv, startVerse, endVerse, endChapter, formatted, files, totalOccurrences, isWholeBook, displayChapter } = data;
+                const { bookId, chapter, startBcv, endBcv, startVerse, endVerse, endChapter, formatted, files, totalOccurrences, displayChapter } = data;
 
                 const entry: ReferenceIndexEntry = {
                     startBcv,
@@ -796,7 +799,7 @@ export class IndexDatabase {
                 bookMap.get(groupChapter)!.push([rangeKey, entry, formatted]);
             }
             return grouped;
-        } catch (e) {
+        } catch {
             return grouped;
         }
     }
@@ -810,7 +813,7 @@ export class IndexDatabase {
             const startBook = parseInt(startBcv.substring(0, 2));
             const startChapter = parseInt(startBcv.substring(2, 5));
             const startVerse = parseInt(startBcv.substring(5, 8));
-            for (const [key, entry] of Object.entries(this.data.references)) {
+            for (const [, entry] of Object.entries(this.data.references)) {
                 const entryStartBook = parseInt(entry.startBcv.substring(0, 2));
                 const entryStartChapter = parseInt(entry.startBcv.substring(2, 5));
                 const entryStartVerse = parseInt(entry.startBcv.substring(5, 8));
@@ -880,11 +883,11 @@ export class IndexDatabase {
                 totalOccurrences
             };
             return entry;
-        } catch (e) {
+        } catch {
             const startBook = parseInt(startBcv.substring(0, 2));
             const startChapter = parseInt(startBcv.substring(2, 5));
             const startVerse = parseInt(startBcv.substring(5, 8));
-            for (const [key, entry] of Object.entries(this.data.references)) {
+            for (const [, entry] of Object.entries(this.data.references)) {
                 const entryStartBook = parseInt(entry.startBcv.substring(0, 2));
                 const entryStartChapter = parseInt(entry.startBcv.substring(2, 5));
                 const entryStartVerse = parseInt(entry.startBcv.substring(5, 8));
@@ -946,7 +949,7 @@ export class IndexDatabase {
             }
             try {
                 this.db.run('VACUUM');
-            } catch (e) {
+            } catch {
             }
             await this.saveToDisk();
             this.db.close();
