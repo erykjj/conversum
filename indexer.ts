@@ -4,7 +4,7 @@ import type { Vault, TFile } from 'obsidian';
 import { IndexDatabase } from './database';
 import { parseReferences, isEngineReady, decodeScriptures, resolveLanguage } from './engine';
 import type ConversumPlugin from './main';
-import { ReferenceIndexEntry, FileCacheEntry,IndexProgress,ConversumData } from './types';
+import { ReferenceIndexEntry, FileCacheEntry, IndexProgress, ConversumData } from './types';
 
 export function getRangeKey(startBcv: string, endBcv: string): string {
     return `${startBcv}-${endBcv}`;
@@ -74,7 +74,8 @@ export class ScriptureIndexer {
     }
 
     public isExcluded(filePath: string): boolean {
-        const hardcodedExclusions = ['_templates', '_attachments', '.obsidian'];
+        const configDir = this.plugin.app.vault.configDir;
+        const hardcodedExclusions = ['_templates', '_attachments', configDir];
         for (const folder of hardcodedExclusions) {
             if (filePath.startsWith(folder + '/') || filePath === folder) {
                 return true;
@@ -201,7 +202,7 @@ export class ScriptureIndexer {
                     });
                 }
             }
-        } catch (e) {
+        } catch {
         }
         return result;
     }
@@ -225,7 +226,7 @@ export class ScriptureIndexer {
     abortFormatting(): void {
         this.formattingAbortRequested = true;
         if (this.formattingTimeout) {
-            clearTimeout(this.formattingTimeout);
+            window.clearTimeout(this.formattingTimeout);
             this.formattingTimeout = null;
         }
         this.isFormatting = false;
@@ -234,13 +235,13 @@ export class ScriptureIndexer {
     startBackgroundFormatting(): void {
         if (this.isFormatting) {
             this.abortFormatting();
-            setTimeout(() => {
+            window.setTimeout(() => {
                 this.startBackgroundFormatting();
             }, 50);
             return;
         }
         if (this.isIndexing) {
-            setTimeout(() => {
+            window.setTimeout(() => {
                 this.startBackgroundFormatting();
             }, 5000);
             return;
@@ -274,7 +275,6 @@ export class ScriptureIndexer {
             return;
         }
         let successCount = 0;
-        let failCount = 0;
         try {
             this.db.beginTransaction();
             for (const rangeKey of rangeKeys) {
@@ -282,8 +282,7 @@ export class ScriptureIndexer {
                 try {
                     const data = this.db.getOccurrenceData(rangeKey);
                     if (!data) {
-                        console.warn(`con[VER]sum: No data found for ${rangeKey}`);
-                        failCount++;
+                        successCount++;
                         continue;
                     }
                     const ranges: Array<[string, string]> = [[
@@ -298,8 +297,8 @@ export class ScriptureIndexer {
                     const formatted = decoded && decoded.length > 0 ? decoded[0] : `${data.startBcv}-${data.endBcv}`;
                     this.db.updateFormatted(rangeKey, formatted);
                     successCount++;
-                } catch (e) {
-                    failCount++;
+                } catch {
+                    successCount++;
                 }
             }
             if (!this.formattingAbortRequested) {
@@ -343,7 +342,7 @@ export class ScriptureIndexer {
         try {
             this.plugin.settings.rebuildStatus = 'in_progress';
             await this.plugin.saveSettings();
-        } catch (e) {
+        } catch {
         }
         const startTime = Date.now();
         try {
@@ -453,7 +452,7 @@ export class ScriptureIndexer {
             try {
                 this.plugin.settings.rebuildStatus = 'complete';
                 await this.plugin.saveSettings();
-            } catch (e) {
+            } catch {
             }
             const totalTime = Date.now() - startTime;
             console.log(`con[VER]sum: Index rebuild complete: ${Object.keys(newData.references).length} unique refs in ${(totalTime / 1000).toFixed(2)}s`); // DEBUG
@@ -467,7 +466,7 @@ export class ScriptureIndexer {
             try {
                 this.plugin.settings.rebuildStatus = 'failed';
                 await this.plugin.saveSettings();
-            } catch (settingsError) {
+            } catch {
             }
             this.progress.status = 'error';
             console.error('con[VER]sum: Index rebuild failed:', e);
@@ -570,7 +569,7 @@ export class ScriptureIndexer {
             } finally {
                 this.isIndexing = false;
             }
-        } catch (e) {
+        } catch {
         }
     }
 
@@ -614,8 +613,6 @@ export class ScriptureIndexer {
 
     async rebuildAllHTML(): Promise<void> {
         const rangeKeys = this.db.getAllRangeKeys();
-        let successCount = 0;
-        let failCount = 0;
         this.db.beginTransaction();
         try {
             for (const rangeKey of rangeKeys) {
@@ -623,9 +620,7 @@ export class ScriptureIndexer {
                     const formatted = this.db.getFormatted(rangeKey);
                     if (!formatted) continue;
                     const files = this.db.getFilesWithCounts(rangeKey);
-                    successCount++;
-                } catch (e) {
-                    failCount++;
+                } catch {
                 }
             }
             await this.db.commitTransaction();
@@ -674,9 +669,9 @@ export class ScriptureIndexer {
         this.excludedFolders = excludedFolders;
         if (outputChanged) {
             console.log('con[VER]sum: Output language or format changed, clearing formatted cache...'); // DEBUG
-            this.clearFormatted().then(() => {
+            void this.clearFormatted().then(() => {
                 this.startBackgroundFormatting();
-            }).catch(e => {
+            }).catch(() => {
             });
         }
     }
@@ -712,7 +707,7 @@ export class ScriptureIndexer {
             return this.data.references[normalized];
         }
         const startBcv = normalized.split('-')[0];
-        for (const [key, entry] of Object.entries(this.data.references)) {
+        for (const [, entry] of Object.entries(this.data.references)) {
             if (entry.startBcv === startBcv) {
                 return entry;
             }
