@@ -2,12 +2,12 @@
 
 import { Plugin, Notice, Menu, TFile, TAbstractFile, Editor, EditorPosition, MarkdownView } from 'obsidian';
 import { IndexDatabase } from './database';
-import { initEngine, isEngineReady, getAvailableLanguages, parseReferences, getBookName, decodeScriptures,prewarmEngines,clearEnginePool } from './engine';
+import { initEngine, isEngineReady, getAvailableLanguages, parseReferences, getBookName, decodeScriptures, prewarmEngines, clearEnginePool } from './engine-wrapper';
 import { ScriptureIndexer } from './indexer';
 import { RelatedNotesPopout } from './related';
 import { ConversumSettingTab } from './settings';
 import { ConcordanceView } from './sidebar';
-import { ConversumSettings, DEFAULT_SETTINGS, VIEW_TYPE_CONVERSUM_CONCORDANCE,IndexProgress,ReferenceIndexEntry } from './types';
+import { ConversumSettings, DEFAULT_SETTINGS, VIEW_TYPE_CONVERSUM_CONCORDANCE, IndexProgress, ReferenceIndexEntry } from './types';
 
 export default class ConversumPlugin extends Plugin {
     settings!: ConversumSettings;
@@ -48,7 +48,7 @@ export default class ConversumPlugin extends Plugin {
         this.addCommands();
         this.registerEvents();
         this.addRibbonIcon('book-open', 'con[VER]sum Concordance', () => {
-            this.openConcordanceView();
+            void this.openConcordanceView();
         });
 
         await this.handleStartup();
@@ -63,7 +63,7 @@ export default class ConversumPlugin extends Plugin {
     async onunload(): Promise<void> {
         this.stopFileWatcher();
         if (this.rebuildTimeout) {
-            clearTimeout(this.rebuildTimeout);
+            window.clearTimeout(this.rebuildTimeout);
             this.rebuildTimeout = null;
         }
         if (this.relatedPopout) {
@@ -114,7 +114,7 @@ export default class ConversumPlugin extends Plugin {
             this.settings.rebuildStatus = 'in_progress';
             await this.saveSettings();
             this.app.workspace.onLayoutReady(async () => {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => window.setTimeout(resolve, 500));
                 await this.syncIndexOnStartup();
             });
             return;
@@ -186,7 +186,7 @@ export default class ConversumPlugin extends Plugin {
                 try {
                     await this.indexer.updateFile(file, true);
                     indexedCount++;
-                } catch (e) {
+                } catch {
                 }
             }
             console.log(`con[VER]sum: Indexed ${indexedCount} files`); // DEBUG
@@ -320,13 +320,13 @@ export default class ConversumPlugin extends Plugin {
             await this.indexer.rebuildIndex(progressCallback);
             const data = this.indexer.getData();
             notice.setMessage(`Index complete: ${data ? Object.keys(data.references).length : 0} unique references`);
-            setTimeout(() => notice.hide(), 2000);
+            window.setTimeout(() => notice.hide(), 2000);
             this.refreshConcordanceView();
             this.refreshSettings();
 
         } catch (e) {
             notice.setMessage('Index rebuild failed. See console for details.');
-            setTimeout(() => notice.hide(), 3000);
+            window.setTimeout(() => notice.hide(), 3000);
         }
     }
 
@@ -362,7 +362,7 @@ export default class ConversumPlugin extends Plugin {
     stopFileWatcher(): void {
         this.fileWatcherEnabled = false;
         if (this.rebuildTimeout) {
-            clearTimeout(this.rebuildTimeout);
+            window.clearTimeout(this.rebuildTimeout);
             this.rebuildTimeout = null;
         }
     }
@@ -379,7 +379,7 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (this.rebuildTimeout) {
-            clearTimeout(this.rebuildTimeout);
+            window.clearTimeout(this.rebuildTimeout);
         }
 
         this.rebuildTimeout = window.setTimeout(async () => {
@@ -389,7 +389,7 @@ export default class ConversumPlugin extends Plugin {
                 await this.indexer.updateFile(file);
                 this.refreshConcordanceView();
                 this.refreshSettings();
-            } catch (e) {
+            } catch {
             }
         }, 5000);
     }
@@ -421,7 +421,7 @@ export default class ConversumPlugin extends Plugin {
             this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
                 if (file instanceof TFile && file.extension === 'md') {
                     if (this.indexer && this.isStartupComplete) {
-                        this.indexer.removeFile(oldPath);
+                        void this.indexer.removeFile(oldPath);
                         this.scheduleIndexUpdate(file);
                     }
                 }
@@ -432,7 +432,7 @@ export default class ConversumPlugin extends Plugin {
             this.app.vault.on('delete', (file: TAbstractFile) => {
                 if (file instanceof TFile && file.extension === 'md') {
                     if (this.indexer && this.isStartupComplete) {
-                        this.indexer.removeFile(file.path);
+                        void this.indexer.removeFile(file.path);
                         this.refreshConcordanceView();
                         this.refreshSettings();
                     }
@@ -479,7 +479,7 @@ export default class ConversumPlugin extends Plugin {
                     submenu.addItem((subItem: any) => {
                         subItem.setTitle('Open concordance').setIcon('book-open');
                         subItem.onClick(() => {
-                            this.openConcordanceView();
+                            void this.openConcordanceView();
                         });
                     });
                     if (hasReference && matchedEntry) {
@@ -517,16 +517,12 @@ export default class ConversumPlugin extends Plugin {
             }
             const range = activeDocument.caretRangeFromPoint(evt.clientX, evt.clientY);
             let isAtEnd = false;
-            let clickedText = '';
-            let clickedOffset = -1;
             if (range) {
                 const container = range.startContainer;
                 if (container.nodeType === Node.TEXT_NODE) {
                     const textNode = container as Text;
                     const text = textNode.textContent || '';
                     const offset = range.startOffset;
-                    clickedText = text;
-                    clickedOffset = offset;
                     if (offset >= text.length) {
                         let nextSibling = textNode.nextSibling;
                         let hasTextAfter = false;
@@ -640,7 +636,7 @@ export default class ConversumPlugin extends Plugin {
             submenu.addItem((subItem: any) => {
                 subItem.setTitle('Open concordance').setIcon('book-open');
                 subItem.onClick(() => {
-                    this.openConcordanceView();
+                    void this.openConcordanceView();
                 });
             });
             if (parsed && parsed.length > 0) {
@@ -706,7 +702,7 @@ export default class ConversumPlugin extends Plugin {
             id: 'open-concordance',
             name: 'Open concordance',
             icon: 'book-open',
-            callback: () => this.openConcordanceView()
+            callback: () => void this.openConcordanceView()
         });
     }
 
@@ -905,7 +901,8 @@ export default class ConversumPlugin extends Plugin {
                     }
                 }
             }
-        } catch (e) { }
+        } catch {
+        }
 
         if (x === 0 && y === 0) {
             const activeEl = activeDocument.activeElement;
