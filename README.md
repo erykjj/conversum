@@ -8,10 +8,6 @@
 
 A scripture reference parser and cross-linker for Obsidian. Turn scattered Bible references into a unified concordance. Automatically discovers, indexes, and links scriptures across all your notes. *Colligere et connectere* ("To gather and connect").
 
-## Security and Privacy
-
-If you are concerned about the "Scorecard" review or the "Caution" warning on the [Obsidian Community plugins page](https://community.obsidian.md/plugins/conversum), see [SECURITY](https://github.com/erykjj/conversum?tab=security-ov-file).
-
 ---
 
 **Important:** Set your source and output languages and format before enabling auto-index. The initial index build may take 5 minutes or more on a vault with many notes.
