@@ -1,0 +1,10 @@
+{
+  "id": "conversum",
+  "name": "conVERsum",
+  "version": "0.1.0",
+  "minAppVersion": "1.10.0",
+  "description": "Turn scattered Bible references into a unified concordance. Automatically discovers, indexes, and links scriptures across all your notes.",
+  "author": "Eryk J.",
+  "authorUrl": "https://github.com/erykjj",
+  "isDesktopOnly": false
+}
