@@ -1,0 +1,33 @@
+{
+  "name": "conversum",
+  "version": "0.1.0",
+  "description": "Turn scattered Bible references into a unified concordance. Automatically discovers, indexes, and links scriptures across all your notes.",
+  "main": "main.js",
+  "scripts": {
+    "prebuild": "node scripts/embed-wasm.js",
+    "build": "node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "scripture",
+    "bible",
+    "concordance"
+  ],
+  "author": "Eryk J.",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/sql.js": "^1.4.11",
+    "esbuild": "^0.28.1",
+    "obsidian": "1.13.1",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "sql.js": "^1.14.1"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
+}
