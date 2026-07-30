@@ -3,7 +3,7 @@
 // @ts-ignore
 import { SQL_WASM_BASE64 } from './wasm-base64';
 import initSqlJs, { Database as SqlDatabase } from 'sql.js';
-import { isWholeBookReference } from './engine'
+import { isWholeBookReference } from './engine-wrapper'
 import type ConversumPlugin from './main';
 import { ConversumData, ReferenceIndexEntry, FileCacheEntry } from './types';
 
