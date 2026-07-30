@@ -68,7 +68,7 @@ export class RelatedNotesPopout {
         const refStartChapter = parseInt(refStartBcv.substring(2, 5));
         const refStartVerse = parseInt(refStartBcv.substring(5, 8));
         const refEndVerse = parseInt(refEndBcv.substring(5, 8));
-        for (const [key, entry] of Object.entries(data.references)) {
+        for (const [, entry] of Object.entries(data.references)) {
             const entryStartBcv = entry.startBcv;
             const entryEndBcv = entry.endBcv;
             const entryStartBook = parseInt(entryStartBcv.substring(0, 2));
@@ -101,6 +101,11 @@ export class RelatedNotesPopout {
         const otherFiles = allFiles.filter(f => f.path !== currentFilePath);
         const popout = activeDocument.createElement('div');
         popout.className = 'conversum-related-popout';
+        popout.style.position = 'fixed';
+        popout.style.zIndex = '1000';
+        popout.style.maxWidth = '500px';
+        popout.style.minWidth = '200px';
+        popout.style.width = 'auto';
         let left = x + 20;
         let top = y + 10;
         const popoutWidth = 500;
@@ -149,7 +154,7 @@ export class RelatedNotesPopout {
                 const countSpan = entryContainer.createEl('span', { 
                     cls: 'conversum-related-popout-count'
                 });
-                countSpan.textContent = `\u00A0(${file.occurrences})`;
+                countSpan.textContent = '\u00A0(' + file.occurrences + ')';
             }
         }
         popout.addEventListener('mouseenter', () => {
@@ -215,7 +220,7 @@ export class RelatedNotesPopout {
             return;
         }
         const fileOccurrences = new Map<string, number>();
-        for (const [key, entry] of entries) {
+        for (const [, entry] of entries) {
             for (const file of entry.files) {
                 const currentCount = fileOccurrences.get(file.path) || 0;
                 fileOccurrences.set(file.path, currentCount + file.occurrences);
@@ -235,6 +240,11 @@ export class RelatedNotesPopout {
         const otherFiles = allFiles.filter(f => f.path !== currentFilePath);
         const popout = activeDocument.createElement('div');
         popout.className = 'conversum-related-popout';
+        popout.style.position = 'fixed';
+        popout.style.zIndex = '1000';
+        popout.style.maxWidth = '500px';
+        popout.style.minWidth = '200px';
+        popout.style.width = 'auto';
         let left = x + 20;
         let top = y + 10;
         const popoutWidth = 500;
@@ -283,7 +293,7 @@ export class RelatedNotesPopout {
                 const countSpan = entryContainer.createEl('span', { 
                     cls: 'conversum-related-popout-count'
                 });
-                countSpan.textContent = `\u00A0(${file.occurrences})`;
+                countSpan.textContent = '\u00A0(' + file.occurrences + ')';
             }
         }
         popout.addEventListener('mouseenter', () => {
