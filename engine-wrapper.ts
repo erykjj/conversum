@@ -1,11 +1,10 @@
-// engine.ts
+// engine-wrapper.ts
 
-// @ts-ignore
-import * as wasmModule from './engine.js';
-// @ts-ignore
+import init from './engine.js';
 import wasmBinary from './engine_bg.wasm';
 
 let engineInitialized = false;
+let TravertureEngine: any = null;
 
 const enginePool = new Map<string, any>();
 
@@ -17,8 +16,8 @@ export async function initEngine(): Promise<void> {
     if (engineInitialized) return;
     
     try {
-        // @ts-ignore - WASM default export
-        await wasmModule.default({ module_or_path: wasmBinary });
+        await init({ module_or_path: wasmBinary });
+        TravertureEngine = (init as any).TravertureEngine;
         engineInitialized = true;
     } catch (e) {
         console.error('con[VER]sum: Failed to initialize WASM engine:', e);
@@ -39,11 +38,10 @@ function getOrCreateEngine(
         return enginePool.get(key);
     }
     try {
-        // @ts-ignore
-        const engine = new wasmModule.TravertureEngine(language, language, format, false);
+        const engine = new TravertureEngine(language, language, format, false);
         enginePool.set(key, engine);
         return engine;
-    } catch (e) {
+    } catch {
         return null;
     }
 }
@@ -79,30 +77,24 @@ export function isEngineReady(): boolean {
     return engineInitialized;
 }
 
-// ============================================================
-// STATIC METHODS
-// ============================================================
-
 export function getChapterCount(bookId: number): number {
-    if (!engineInitialized) {
+    if (!engineInitialized || !TravertureEngine) {
         return 0;
     }
     try {
-        // @ts-ignore
-        return wasmModule.TravertureEngine.get_chapter_count(bookId);
-    } catch (e) {
+        return TravertureEngine.get_chapter_count(bookId);
+    } catch {
         return 0;
     }
 }
 
 export function getVerseCount(bookId: number, chapter: number): number {
-    if (!engineInitialized) {
+    if (!engineInitialized || !TravertureEngine) {
         return 0;
     }
     try {
-        // @ts-ignore
-        return wasmModule.TravertureEngine.get_verse_count(bookId, chapter);
-    } catch (e) {
+        return TravertureEngine.get_verse_count(bookId, chapter);
+    } catch {
         return 1;
     }
 }
@@ -127,37 +119,34 @@ export function getBookName(
     format: 'full' | 'standard' | 'official' = 'full',
     capitalize: boolean = false
 ): string {
-    if (!engineInitialized) {
+    if (!engineInitialized || !TravertureEngine) {
         return '';
     }
     try {
-        // @ts-ignore
-        return wasmModule.TravertureEngine.get_book_name(bookNumber, langCode, format, capitalize);
-    } catch (e) {
+        return TravertureEngine.get_book_name(bookNumber, langCode, format, capitalize);
+    } catch {
         return '';
     }
 }
 
 export function getLangSymbol(langCode: string): string {
-    if (!engineInitialized) {
+    if (!engineInitialized || !TravertureEngine) {
         return 'E';
     }
     try {
-        // @ts-ignore
-        return wasmModule.TravertureEngine.get_lang_symbol(langCode);
-    } catch (e) {
+        return TravertureEngine.get_lang_symbol(langCode);
+    } catch {
         return 'E';
     }
 }
 
 export function getAvailableLanguages(): any[] {
-    if (!engineInitialized) {
+    if (!engineInitialized || !TravertureEngine) {
         return [];
     }
     
     try {
-        // @ts-ignore
-        const json = wasmModule.TravertureEngine.get_available_languages();
+        const json = TravertureEngine.get_available_languages();
         const parsed = JSON.parse(json);
         return parsed
             .filter((lang: any) => lang.code !== 'ase' && lang.language_code !== 'ase')
@@ -171,7 +160,7 @@ export function getAvailableLanguages(): any[] {
                 vernacularName: lang.language_name || lang.vernacularName || lang.languageName,
                 englishName: lang.english_name || lang.englishName
             }));
-    } catch (e) {
+    } catch {
         return [];
     }
 }
@@ -198,10 +187,6 @@ export function resolveLanguage(input: string): string | null {
     return null;
 }
 
-// ============================================================
-// INSTANCE METHODS
-// ============================================================
-
 export function parseReferences(
     text: string,
     sourceLanguage: string,
@@ -215,7 +200,7 @@ export function parseReferences(
     try {
         const result = engine.parse(resolvedSource, outputLanguage, nameFormat, capitalize, text);
         return JSON.parse(result);
-    } catch (e) {
+    } catch {
         return null;
     }
 }
@@ -239,13 +224,12 @@ export function decodeScriptures(
 }
 
 export function getEngineVersion(): string {
-    if (!engineInitialized) {
+    if (!engineInitialized || !TravertureEngine) {
         return 'Engine not initialized';
     }
     try {
-        // @ts-ignore
-        return wasmModule.TravertureEngine.get_version();
-    } catch (e) {
+        return TravertureEngine.get_version();
+    } catch {
         return 'Unknown';
     }
 }
