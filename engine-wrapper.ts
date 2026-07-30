@@ -1,10 +1,9 @@
 // engine-wrapper.ts
 
-import init from './engine.js';
+import * as wasmModule from './engine.js';
 import wasmBinary from './engine_bg.wasm';
 
 let engineInitialized = false;
-let TravertureEngine: any = null;
 
 const enginePool = new Map<string, any>();
 
@@ -16,8 +15,7 @@ export async function initEngine(): Promise<void> {
     if (engineInitialized) return;
     
     try {
-        await init({ module_or_path: wasmBinary });
-        TravertureEngine = (init as any).TravertureEngine;
+        await wasmModule.default({ module_or_path: wasmBinary });
         engineInitialized = true;
     } catch (e) {
         console.error('con[VER]sum: Failed to initialize WASM engine:', e);
@@ -38,7 +36,7 @@ function getOrCreateEngine(
         return enginePool.get(key);
     }
     try {
-        const engine = new TravertureEngine(language, language, format, false);
+        const engine = new wasmModule.TravertureEngine(language, language, format, false);
         enginePool.set(key, engine);
         return engine;
     } catch {
@@ -78,22 +76,22 @@ export function isEngineReady(): boolean {
 }
 
 export function getChapterCount(bookId: number): number {
-    if (!engineInitialized || !TravertureEngine) {
+    if (!engineInitialized) {
         return 0;
     }
     try {
-        return TravertureEngine.get_chapter_count(bookId);
+        return wasmModule.TravertureEngine.get_chapter_count(bookId);
     } catch {
         return 0;
     }
 }
 
 export function getVerseCount(bookId: number, chapter: number): number {
-    if (!engineInitialized || !TravertureEngine) {
+    if (!engineInitialized) {
         return 0;
     }
     try {
-        return TravertureEngine.get_verse_count(bookId, chapter);
+        return wasmModule.TravertureEngine.get_verse_count(bookId, chapter);
     } catch {
         return 1;
     }
@@ -119,34 +117,34 @@ export function getBookName(
     format: 'full' | 'standard' | 'official' = 'full',
     capitalize: boolean = false
 ): string {
-    if (!engineInitialized || !TravertureEngine) {
+    if (!engineInitialized) {
         return '';
     }
     try {
-        return TravertureEngine.get_book_name(bookNumber, langCode, format, capitalize);
+        return wasmModule.TravertureEngine.get_book_name(bookNumber, langCode, format, capitalize);
     } catch {
         return '';
     }
 }
 
 export function getLangSymbol(langCode: string): string {
-    if (!engineInitialized || !TravertureEngine) {
+    if (!engineInitialized) {
         return 'E';
     }
     try {
-        return TravertureEngine.get_lang_symbol(langCode);
+        return wasmModule.TravertureEngine.get_lang_symbol(langCode);
     } catch {
         return 'E';
     }
 }
 
 export function getAvailableLanguages(): any[] {
-    if (!engineInitialized || !TravertureEngine) {
+    if (!engineInitialized) {
         return [];
     }
     
     try {
-        const json = TravertureEngine.get_available_languages();
+        const json = wasmModule.TravertureEngine.get_available_languages();
         const parsed = JSON.parse(json);
         return parsed
             .filter((lang: any) => lang.code !== 'ase' && lang.language_code !== 'ase')
@@ -224,11 +222,11 @@ export function decodeScriptures(
 }
 
 export function getEngineVersion(): string {
-    if (!engineInitialized || !TravertureEngine) {
+    if (!engineInitialized) {
         return 'Engine not initialized';
     }
     try {
-        return TravertureEngine.get_version();
+        return wasmModule.TravertureEngine.get_version();
     } catch {
         return 'Unknown';
     }
