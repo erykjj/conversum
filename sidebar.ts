@@ -1,9 +1,9 @@
 // sidebar.ts
 
 import { ItemView, WorkspaceLeaf, TFile, Notice, setIcon } from 'obsidian';
-import { getBookName, decodeScriptures, isWholeBookReference } from './engine';
+import { getBookName, decodeScriptures, isWholeBookReference } from './engine-wrapper';
 import type ConversumPlugin from './main';
-import { VIEW_TYPE_CONVERSUM_CONCORDANCE, BookGroup, ChapterGroup,ReferenceGroup, ReferenceIndexEntry } from './types';
+import { VIEW_TYPE_CONVERSUM_CONCORDANCE, BookGroup, ChapterGroup, ReferenceGroup, ReferenceIndexEntry } from './types';
 
 export class ConcordanceView extends ItemView {
     plugin: ConversumPlugin;
@@ -44,7 +44,7 @@ export class ConcordanceView extends ItemView {
     async onClose(): Promise<void> {
         this.container.empty();
         if (this.searchTimeout) {
-            clearTimeout(this.searchTimeout);
+            window.clearTimeout(this.searchTimeout);
             this.searchTimeout = null;
         }
     }
@@ -88,7 +88,7 @@ export class ConcordanceView extends ItemView {
         this.searchInput.addEventListener('input', () => {
             this.searchQuery = this.searchInput!.value;
             if (this.searchTimeout) {
-                clearTimeout(this.searchTimeout);
+                window.clearTimeout(this.searchTimeout);
             }
             this.searchTimeout = window.setTimeout(() => {
                 this.applySearch();
@@ -121,7 +121,7 @@ export class ConcordanceView extends ItemView {
         });
         setIcon(exportBtn, 'file-text');
         exportBtn.addEventListener('click', () => {
-            this.plugin.exportConcordance();
+            void this.plugin.exportConcordance();
         });
         const collapseBtn = topRow.createEl('button', {
             text: '▲',
@@ -260,76 +260,62 @@ export class ConcordanceView extends ItemView {
 
     private buildView(): void {
         if (!this.resultsContainer) return;
-        const fragment = document.createDocumentFragment();
         for (const book of this.bookGroups) {
-            const bookHTML = this.buildBookHTML(book);
-            const tempDiv = document.createElement('div');
-            tempDiv.insertAdjacentHTML('beforeend', bookHTML);
-            const bookEl = tempDiv.firstElementChild as HTMLElement;
+            const bookEl = this.resultsContainer.createDiv({ cls: 'conversum-book' });
+            bookEl.dataset.bookId = String(book.bookId);
             (bookEl as any)._bookData = book;
-            const header = bookEl.querySelector('.conversum-book-header') as HTMLElement;
-            if (header) {
-                header.addEventListener('click', () => {
-                    this.toggleBook(book.bookId);
-                });
-            }
-            fragment.appendChild(bookEl);
-        }
-        this.resultsContainer.appendChild(fragment);
-        for (const book of this.bookGroups) {
-            if (book.expanded) {
+            const header = bookEl.createDiv({ cls: 'conversum-book-header' });
+            const toggle = header.createSpan({ cls: 'conversum-toggle' });
+            toggle.textContent = book.expanded ? '▼' : '▶';
+            const label = header.createSpan({ cls: 'conversum-book-label' });
+            label.createSpan({ text: book.bookName, cls: 'conversum-book-name' });
+            label.createSpan({ text: ` (${book.totalReferences} refs, ${book.totalFiles} files)`, cls: 'conversum-book-counts' });
+            header.addEventListener('click', () => {
                 this.toggleBook(book.bookId);
+            });
+            const chaptersContainer = bookEl.createDiv({ cls: 'conversum-chapters' });
+            chaptersContainer.style.display = book.expanded ? 'block' : 'none';
+            chaptersContainer.dataset.bookId = String(book.bookId);
+            if (book.expanded) {
+                this.buildChaptersForBook(chaptersContainer, book.bookId);
             }
         }
     }
 
-    private buildBookHTML(book: BookGroup): string {
-        const toggleSymbol = book.expanded ? '▼' : '▶';
-        const chaptersDisplay = book.expanded ? 'block' : 'none';
-        return `
-            <div class="conversum-book" data-book-id="${book.bookId}">
-                <div class="conversum-book-header">
-                    <span class="conversum-toggle">${toggleSymbol}</span>
-                    <span class="conversum-book-label">
-                        <span class="conversum-book-name">${book.bookName}</span>
-                        <span class="conversum-book-counts"> (${book.totalReferences} refs, ${book.totalFiles} files)</span>
-                    </span>
-                </div>
-                <div class="conversum-chapters" style="display:${chaptersDisplay}" data-book-id="${book.bookId}">
-                    <!-- Chapters will be built on demand -->
-                </div>
-            </div>
-        `;
-    }
-
-    private buildChapterHTML(bookId: number, chapter: ChapterGroup): string {
-        const chapterKey = `${bookId}:${chapter.chapter}`;
-        const toggleSymbol = chapter.expanded ? '▼' : '▶';
-        const refsDisplay = chapter.expanded ? 'block' : 'none';
-        let chapterName: string;
-        if (chapter.chapter === -1) {
-            chapterName = 'Book';
-        } else {
-            chapterName = `Chapter ${chapter.chapter}`;
+    private buildChaptersForBook(container: HTMLElement, bookId: number): void {
+        const book = this.bookGroups.find(b => b.bookId === bookId);
+        if (!book) return;
+        for (const chapter of book.chapters) {
+            const chapterKey = `${bookId}:${chapter.chapter}`;
+            const chapterEl = container.createDiv({ cls: 'conversum-chapter' });
+            chapterEl.dataset.chapterKey = chapterKey;
+            (chapterEl as any)._chapterData = chapter;
+            const header = chapterEl.createDiv({ cls: 'conversum-chapter-header' });
+            const toggle = header.createSpan({ cls: 'conversum-toggle' });
+            toggle.textContent = chapter.expanded ? '▼' : '▶';
+            const label = header.createSpan({ cls: 'conversum-chapter-label' });
+            let chapterName: string;
+            if (chapter.chapter === -1) {
+                chapterName = 'Book';
+            } else {
+                chapterName = `Chapter ${chapter.chapter}`;
+            }
+            label.createSpan({ text: chapterName, cls: 'conversum-chapter-name' });
+            label.createSpan({ text: ` (${chapter.totalReferences} refs, ${chapter.totalFiles} files)`, cls: 'conversum-chapter-counts' });
+            header.addEventListener('click', () => {
+                this.toggleChapter(bookId, chapter.chapter);
+            });
+            const refsContainer = chapterEl.createDiv({ cls: 'conversum-references' });
+            refsContainer.style.display = chapter.expanded ? 'block' : 'none';
+            refsContainer.dataset.chapterKey = chapterKey;
+            if (chapter.expanded) {
+                this.buildReferencesForChapter(refsContainer, chapter.references);
+            }
         }
-        return `
-            <div class="conversum-chapter" data-chapter-key="${chapterKey}">
-                <div class="conversum-chapter-header">
-                    <span class="conversum-toggle">${toggleSymbol}</span>
-                    <span class="conversum-chapter-label">
-                        <span class="conversum-chapter-name">${chapterName}</span>
-                        <span class="conversum-chapter-counts"> (${chapter.totalReferences} refs, ${chapter.totalFiles} files)</span>
-                    </span>
-                </div>
-                <div class="conversum-references" style="display:${refsDisplay}" data-chapter-key="${chapterKey}">
-                    <!-- References will be built on demand -->
-                </div>
-            </div>
-        `;
     }
 
     private toggleBook(bookId: number): void {
-        const bookEl = this.resultsContainer?.querySelector(`.conversum-book[data-book-id="${bookId}"]`) as HTMLElement;
+        const bookEl = this.resultsContainer?.querySelector(`.conversum-book[data-book-id="${bookId}"]`);
         if (!bookEl) return;
         const isExpanded = this.expandedBooks.has(bookId);
         if (isExpanded) {
@@ -354,42 +340,9 @@ export class ConcordanceView extends ItemView {
         }
     }
 
-    private buildChaptersForBook(container: HTMLElement, bookId: number): void {
-        const book = this.bookGroups.find(b => b.bookId === bookId);
-        if (!book) return;
-        const fragment = document.createDocumentFragment();
-        for (const chapter of book.chapters) {
-            const chapterHTML = this.buildChapterHTML(bookId, chapter);
-            const tempDiv = document.createElement('div');
-            tempDiv.insertAdjacentHTML('beforeend', chapterHTML);
-            const chapterEl = tempDiv.firstElementChild as HTMLElement;
-            (chapterEl as any)._chapterData = chapter;
-            const header = chapterEl.querySelector('.conversum-chapter-header') as HTMLElement;
-            if (header) {
-                header.addEventListener('click', () => {
-                    this.toggleChapter(bookId, chapter.chapter);
-                });
-            }
-            fragment.appendChild(chapterEl);
-        }
-        container.appendChild(fragment);
-        for (const chapter of book.chapters) {
-            if (chapter.expanded || this.expandedChapters.has(`${bookId}:${chapter.chapter}`)) {
-                const chapterKey = `${bookId}:${chapter.chapter}`;
-                const chapterEl = container.querySelector(`.conversum-chapter[data-chapter-key="${chapterKey}"]`) as HTMLElement;
-                if (chapterEl) {
-                    const refsContainer = chapterEl.querySelector('.conversum-references') as HTMLElement;
-                    if (refsContainer) {
-                        this.buildReferencesForChapter(refsContainer, chapter.references);
-                    }
-                }
-            }
-        }
-    }
-
     private toggleChapter(bookId: number, chapter: number): void {
         const chapterKey = `${bookId}:${chapter}`;
-        const chapterEl = this.resultsContainer?.querySelector(`.conversum-chapter[data-chapter-key="${chapterKey}"]`) as HTMLElement;
+        const chapterEl = this.resultsContainer?.querySelector(`.conversum-chapter[data-chapter-key="${chapterKey}"]`);
         if (!chapterEl) return;
         const isExpanded = this.expandedChapters.has(chapterKey);
         if (isExpanded) {
@@ -421,7 +374,6 @@ export class ConcordanceView extends ItemView {
     }
 
     private buildReferencesForChapter(container: HTMLElement, references: ReferenceGroup[]): void {
-        const fragment = document.createDocumentFragment();
         for (const ref of references) {
             if (this.searchQuery) {
                 const searchText = ref._searchText || ref.formattedText || ref.referenceKey;
@@ -430,22 +382,30 @@ export class ConcordanceView extends ItemView {
                 }
             }
             const refEl = this.createReferenceElement(ref);
-            fragment.appendChild(refEl);
+            container.appendChild(refEl);
         }
-        container.appendChild(fragment);
     }
 
     private createReferenceElement(ref: ReferenceGroup): HTMLElement {
         const refEl = document.createElement('div');
-        refEl.className = 'conversum-reference';
-        const html = this.buildReferenceHTML(ref);
-        refEl.insertAdjacentHTML('beforeend', html);
-        const links = refEl.querySelectorAll('.conversum-file-link');
-        for (const link of links) {
+        refEl.className = ref.isWholeBook ? 'conversum-reference whole-book' : 'conversum-reference';
+        const displayText = ref.formattedText || ref.referenceKey;
+        const refTextSpan = refEl.createSpan({ cls: 'conversum-ref-text', text: displayText });
+        const separator = refEl.createSpan({ cls: 'conversum-ref-separator', text: ' — ' });
+        const filesContainer = refEl.createDiv({ cls: 'conversum-files-inline' });
+        const fileUnits: HTMLElement[] = [];
+        for (let i = 0; i < ref.files.length; i++) {
+            const file = ref.files[i];
+            const unit = filesContainer.createSpan({ cls: 'conversum-file-unit' });
+            const link = unit.createEl('a', {
+                cls: 'conversum-file-link',
+                text: file.path.replace(/\.md$/, '')
+            });
+            link.dataset.path = file.path;
             link.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const path = (link as HTMLElement).dataset.path;
+                const path = (e.currentTarget as HTMLElement).dataset.path;
                 if (path) {
                     const fileObj = this.app.vault.getAbstractFileByPath(path);
                     if (fileObj instanceof TFile) {
@@ -455,25 +415,13 @@ export class ConcordanceView extends ItemView {
                     }
                 }
             });
+            unit.createSpan({ cls: 'conversum-file-count', text: ` (${file.occurrences})` });
+            if (i < ref.files.length - 1) {
+                unit.createSpan({ text: '; ' });
+            }
+            fileUnits.push(unit);
         }
         return refEl;
-    }
-
-    private buildReferenceHTML(ref: ReferenceGroup): string {
-        const displayText = ref.formattedText || ref.referenceKey;
-        const fileLinks = ref.files.map(f => {
-            const fileName = f.path.replace(/\.md$/, '');
-            return `<span class="conversum-file-unit">
-                <a class="conversum-file-link" data-path="${f.path}">${fileName}</a>
-                <span class="conversum-file-count"> (${f.occurrences})</span>
-            </span>`;
-        }).join('; ');
-        const refClass = ref.isWholeBook ? 'conversum-reference whole-book' : 'conversum-reference';
-        return `<div class="${refClass}">
-            <span class="conversum-ref-text">${displayText}</span>
-            <span class="conversum-ref-separator"> — </span>
-            <div class="conversum-files-inline">${fileLinks}</div>
-        </div>`;
     }
 
     private collapseAll(): void {
