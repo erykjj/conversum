@@ -101,11 +101,6 @@ export class RelatedNotesPopout {
         const otherFiles = allFiles.filter(f => f.path !== currentFilePath);
         const popout = activeDocument.createElement('div');
         popout.className = 'conversum-related-popout';
-        popout.style.position = 'fixed';
-        popout.style.zIndex = '1000';
-        popout.style.maxWidth = '500px';
-        popout.style.minWidth = '200px';
-        popout.style.width = 'auto';
         let left = x + 20;
         let top = y + 10;
         const popoutWidth = 500;
@@ -123,10 +118,10 @@ export class RelatedNotesPopout {
         if (top < margin) {
             top = margin;
         }
-        popout.style.left = `${left}px`;
-        popout.style.top = `${top}px`;
+        popout.style.left = left + 'px';
+        popout.style.top = top + 'px';
         const header = popout.createDiv({ cls: 'conversum-related-popout-header' });
-        const title = header.createEl('span', { text: formatted, cls: 'conversum-related-popout-title' });
+        header.createEl('span', { text: formatted, cls: 'conversum-related-popout-title' });
         const body = popout.createDiv({ cls: 'conversum-related-popout-body' });
         if (otherFiles.length === 0) {
             body.createEl('p', {
@@ -240,11 +235,6 @@ export class RelatedNotesPopout {
         const otherFiles = allFiles.filter(f => f.path !== currentFilePath);
         const popout = activeDocument.createElement('div');
         popout.className = 'conversum-related-popout';
-        popout.style.position = 'fixed';
-        popout.style.zIndex = '1000';
-        popout.style.maxWidth = '500px';
-        popout.style.minWidth = '200px';
-        popout.style.width = 'auto';
         let left = x + 20;
         let top = y + 10;
         const popoutWidth = 500;
@@ -262,10 +252,10 @@ export class RelatedNotesPopout {
         if (top < margin) {
             top = margin;
         }
-        popout.style.left = `${left}px`;
-        popout.style.top = `${top}px`;
+        popout.style.left = left + 'px';
+        popout.style.top = top + 'px';
         const header = popout.createDiv({ cls: 'conversum-related-popout-header' });
-        const title = header.createEl('span', { text: formatted, cls: 'conversum-related-popout-title' });
+        header.createEl('span', { text: formatted, cls: 'conversum-related-popout-title' });
         const body = popout.createDiv({ cls: 'conversum-related-popout-body' });
         if (otherFiles.length === 0) {
             body.createEl('p', {
