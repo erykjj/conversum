@@ -1,9 +1,5 @@
 # con[VER]sum Security and Privacy
 
-If you are concerned about the "Scorecard" review or the "Caution" warning on the [Obsidian Community plugins page](https://community.obsidian.md/plugins/conversum), here is some information to ease your mind.
-
----
-
 ## Network Use
 
 No network requests are made. No telemetry, tracking, or third-party services are used.
