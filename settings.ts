@@ -1,7 +1,7 @@
 // settings.ts
 
 import { PluginSettingTab, Setting, Notice } from 'obsidian';
-import { getAvailableLanguages, getEngineVersion } from './engine';
+import { getAvailableLanguages, getEngineVersion } from './engine-wrapper';
 import type ConversumPlugin from './main';
 
 export class ConversumSettingTab extends PluginSettingTab {
@@ -22,7 +22,7 @@ export class ConversumSettingTab extends PluginSettingTab {
             text: `v${this.plugin.manifest.version} – ${engineVersion}`,
             cls: 'conversum-version-info'
         });
-        containerEl.createEl('h3', { text: 'Language Settings' });
+        new Setting(containerEl).setName('Language Settings').setHeading();
         const languages = getAvailableLanguages();
         const nonAslLanguages = languages.filter((l: any) => l.code !== 'ase');
         new Setting(containerEl)
@@ -76,7 +76,7 @@ export class ConversumSettingTab extends PluginSettingTab {
                     this.display();
                 });
             });
-        containerEl.createEl('h3', { text: 'Index Settings' });
+        new Setting(containerEl).setName('Index Settings').setHeading();
         new Setting(containerEl)
             .setName('Auto-index')
             .setDesc('Automatically update the index when files change.')
