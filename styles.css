@@ -1,0 +1,435 @@
+/* styles.css */
+
+/* ============================================================
+   CONCORDANCE VIEW
+   ============================================================ */
+
+.conversum-concordance {
+    padding: 8px;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    user-select: text;
+}
+
+.conversum-concordance-toolbar {
+    flex-shrink: 0;
+    margin-bottom: 6px;
+}
+
+.conversum-concordance-top-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+
+.conversum-search-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.conversum-search-input {
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 4px 24px 4px 8px;
+    font-size: 0.78rem;
+    width: 160px;
+    min-width: 100px;
+    outline: none;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    height: auto;
+    line-height: normal;
+}
+
+.conversum-search-input:focus {
+    border-color: var(--interactive-accent);
+}
+
+.conversum-search-clear {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    padding: 0 3px;
+    line-height: 1;
+    box-shadow: none;
+    height: auto;
+}
+
+.conversum-search-clear:hover {
+    color: var(--text-normal);
+}
+
+.conversum-count {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.conversum-spacer {
+    flex: 1;
+    min-width: 8px;
+}
+
+.conversum-toolbar-btn {
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    height: 28px;
+    line-height: 1;
+    box-shadow: none;
+    box-sizing: border-box;
+    min-width: 40px;
+    text-align: center;
+}
+
+.conversum-toolbar-btn:hover {
+    background: var(--background-modifier-hover);
+}
+
+.conversum-results {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.conversum-empty {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 24px 0;
+    font-size: 0.85rem;
+}
+
+/* ============================================================
+   HIERARCHICAL VIEW
+   ============================================================ */
+
+.conversum-book {
+    margin-bottom: 4px;
+}
+
+.conversum-book-header {
+    display: flex;
+    align-items: center;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    background: var(--background-secondary);
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.conversum-book-header:hover {
+    background: var(--background-modifier-hover);
+}
+
+.conversum-book-header .conversum-toggle {
+    font-size: 0.65rem;
+    margin-right: 6px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+}
+
+.conversum-book-label {
+    font-size: 0.85rem;
+}
+
+.conversum-book-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-normal);
+}
+
+.conversum-book-counts {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.conversum-chapters {
+    padding-left: 18px;
+    border-left: 2px solid var(--background-modifier-border);
+    margin-left: 6px;
+}
+
+.conversum-chapter {
+    margin-bottom: 2px;
+}
+
+.conversum-chapter-header {
+    display: flex;
+    align-items: center;
+    padding: 3px 6px;
+    cursor: pointer;
+    border-radius: 3px;
+    color: var(--text-normal);
+}
+
+.conversum-chapter-header:hover {
+    background: var(--background-modifier-hover);
+}
+
+.conversum-chapter-header .conversum-toggle {
+    font-size: 0.6rem;
+    margin-right: 6px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+}
+
+.conversum-chapter-label {
+    font-size: 0.8rem;
+}
+
+.conversum-chapter-name {
+    font-weight: 700;
+    color: var(--text-normal);
+}
+
+.conversum-chapter-counts {
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.conversum-references {
+    padding-left: 26px;
+}
+
+.conversum-reference {
+    padding: 2px 0;
+    font-size: 0.75rem;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 0;
+    width: 100%;
+    white-space: normal;
+}
+
+.conversum-ref-text {
+    font-weight: 700;
+    color: var(--text-normal);
+    flex-shrink: 0;
+}
+
+.conversum-ref-separator {
+    color: var(--text-muted);
+    margin: 0 4px;
+    flex-shrink: 0;
+}
+
+.conversum-files-inline {
+    display: inline;
+    word-break: break-word;
+    flex: 1;
+}
+
+.conversum-file-link {
+    color: var(--text-accent);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.conversum-file-link:hover {
+    text-decoration: underline;
+}
+
+.conversum-file-count {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+/* ============================================================
+   RELATED NOTES POPOUT
+   ============================================================ */
+
+.conversum-related-popout {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    min-width: 200px;
+    width: auto;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    user-select: text;
+    animation: conversum-popout-fade-in 0.12s ease;
+}
+
+@keyframes conversum-popout-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.conversum-related-popout-header {
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 6px;
+}
+
+.conversum-related-popout-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-normal);
+}
+
+.conversum-related-popout-body {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.conversum-related-popout-files {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.conversum-related-popout-file {
+    padding: 2px 4px 2px 20px;
+    border-radius: 3px;
+}
+
+.conversum-related-popout-file:hover {
+    background: var(--background-modifier-hover);
+}
+
+.conversum-related-popout-entry {
+    display: inline;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.conversum-related-popout-link {
+    color: var(--text-accent);
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 0.78rem;
+    display: inline;
+}
+
+.conversum-related-popout-link:hover {
+    text-decoration: underline;
+}
+
+.conversum-related-popout-count {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    white-space: nowrap;
+    display: inline;
+}
+
+.conversum-related-popout-empty {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin: 4px 0;
+}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+
+.conversum-settings-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.conversum-settings-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-normal);
+}
+
+.conversum-version-info {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: normal;
+}
+
+.conversum-status {
+    background: var(--background-secondary);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-top: 4px;
+}
+
+.conversum-status-item {
+    margin: 2px 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.conversum-settings-footer a {
+    color: var(--text-accent);
+    text-decoration: none;
+}
+.conversum-settings-footer a:hover {
+    text-decoration: underline;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 600px) {
+    .conversum-search-input {
+        width: 120px;
+        min-width: 80px;
+    }
+
+    .conversum-toolbar-btn {
+        padding: 3px 6px;
+        font-size: 0.68rem;
+    }
+
+    .conversum-spacer {
+        display: none;
+    }
+
+    .conversum-chapters {
+        padding-left: 10px;
+    }
+
+    .conversum-references {
+        padding-left: 12px;
+    }
+
+    .conversum-related-header {
+        flex-wrap: wrap;
+    }
+
+    .conversum-related-header h3 {
+        font-size: 0.85rem;
+    }
+}
