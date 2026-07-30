@@ -2,7 +2,7 @@
 
 import type { Vault, TFile } from 'obsidian';
 import { IndexDatabase } from './database';
-import { parseReferences, isEngineReady, decodeScriptures, resolveLanguage } from './engine';
+import { parseReferences, isEngineReady, decodeScriptures, resolveLanguage } from './engine-wrapper';
 import type ConversumPlugin from './main';
 import { ReferenceIndexEntry, FileCacheEntry, IndexProgress, ConversumData } from './types';
 
