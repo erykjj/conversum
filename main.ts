@@ -28,7 +28,7 @@ export default class ConversumPlugin extends Plugin {
 
         try {
             await initEngine();
-            console.log('con[VER]sum: Engine initialized'); // DEBUG
+            // console.log('con[VER]sum: Engine initialized'); // DEBUG
         } catch (e) {
             console.error('con[VER]sum: Failed to initialize engine:', e);
             new Notice('con[VER]sum: Failed to initialize engine.');
@@ -57,7 +57,7 @@ export default class ConversumPlugin extends Plugin {
             this.startFileWatcher();
         }
         this.isStartupComplete = true;
-        console.log('con[VER]sum: Plugin loaded'); // DEBUG
+        // console.log('con[VER]sum: Plugin loaded'); // DEBUG
     }
 
     onunload(): void {
@@ -76,7 +76,7 @@ export default class ConversumPlugin extends Plugin {
                 this.db = null;
             });
         }
-        console.log('con[VER]sum: Plugin unloaded'); // DEBUG
+        // console.log('con[VER]sum: Plugin unloaded'); // DEBUG
     }
 
     private transformForcedReferences(text: string): string {
@@ -122,7 +122,7 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (hasValidData && this.settings.autoIndex) {
-            console.log(`con[VER]sum: Loaded index with ${Object.keys(data.references).length} references from SQLite`); // DEBUG
+            // console.log(`con[VER]sum: Loaded index with ${Object.keys(data.references).length} references from SQLite`); // DEBUG
             this.app.workspace.onLayoutReady(async () => {
                 await this.syncIndexOnStartup();
             });
@@ -136,7 +136,7 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (!hasValidData && this.settings.autoIndex) {
-            console.log('con[VER]sum: No index data found, rebuilding...'); // DEBUG
+            // console.log('con[VER]sum: No index data found, rebuilding...'); // DEBUG
             this.app.workspace.onLayoutReady(async () => {
                 await this.rebuildIndex();
             });
@@ -144,7 +144,7 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (!hasValidData && !this.settings.autoIndex) {
-            console.log('con[VER]sum: No index data found and auto-index is disabled. Waiting for user action.'); // DEBUG
+            // console.log('con[VER]sum: No index data found and auto-index is disabled. Waiting for user action.'); // DEBUG
             this.refreshConcordanceView();
             this.refreshSettings();
             return;
@@ -153,15 +153,15 @@ export default class ConversumPlugin extends Plugin {
 
     private async syncIndexOnStartup(): Promise<void> {
         if (!this.indexer || !this.db) {
-            console.log('con[VER]sum: Indexer or database not initialized, skipping sync'); // DEBUG
+            // console.log('con[VER]sum: Indexer or database not initialized, skipping sync'); // DEBUG
             return;
         }
 
-        console.log('con[VER]sum: Syncing index on startup...'); // DEBUG
+        // console.log('con[VER]sum: Syncing index on startup...'); // DEBUG
         const allFiles = this.app.vault.getMarkdownFiles();
         const data = this.db.getData();
         if (!data || Object.keys(data.fileCache).length === 0) {
-            console.log('con[VER]sum: No existing index data, rebuilding...'); // DEBUG
+            // console.log('con[VER]sum: No existing index data, rebuilding...'); // DEBUG
             await this.rebuildIndex();
             return;
         }
@@ -181,7 +181,7 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (filesToIndex.length > 0) {
-            console.log(`con[VER]sum: Indexing ${filesToIndex.length} new/changed files...`); // DEBUG
+            // console.log(`con[VER]sum: Indexing ${filesToIndex.length} new/changed files...`); // DEBUG
             let indexedCount = 0;
             for (const file of filesToIndex) {
                 try {
@@ -190,10 +190,10 @@ export default class ConversumPlugin extends Plugin {
                 } catch {
                 }
             }
-            console.log(`con[VER]sum: Indexed ${indexedCount} files`); // DEBUG
+            // console.log(`con[VER]sum: Indexed ${indexedCount} files`); // DEBUG
         }
 
-        console.log('con[VER]sum: Checking for deleted files...'); // DEBUG
+        // console.log('con[VER]sum: Checking for deleted files...'); // DEBUG
         const freshData = this.db.getData();
         const freshFileCache = freshData.fileCache || {};
         let removedCount = 0;
@@ -205,15 +205,15 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (removedCount > 0) {
-            console.log(`con[VER]sum: Removed ${removedCount} deleted files from index`); // DEBUG
+            // console.log(`con[VER]sum: Removed ${removedCount} deleted files from index`); // DEBUG
         }
 
         const unformattedCount = this.db.getUnformattedCount();
         if (unformattedCount > 0) {
-            console.log(`con[VER]sum: ${unformattedCount} references need formatting, starting background process...`); // DEBUG
+            // console.log(`con[VER]sum: ${unformattedCount} references need formatting, starting background process...`); // DEBUG
             this.indexer.startBackgroundFormatting();
         } else {
-            console.log('con[VER]sum: All references formatted'); // DEBUG
+            // console.log('con[VER]sum: All references formatted'); // DEBUG
         }
 
         this.refreshConcordanceView();
@@ -325,7 +325,7 @@ export default class ConversumPlugin extends Plugin {
             this.refreshConcordanceView();
             this.refreshSettings();
 
-        } catch (e) {
+        } catch {
             notice.setMessage('Index rebuild failed. See console for details.');
             window.setTimeout(() => notice.hide(), 3000);
         }
@@ -462,10 +462,15 @@ export default class ConversumPlugin extends Plugin {
 
                     if (parsed && parsed.length > 0) {
                         const cursorCh = cursor.ch;
+                        const isForced = line.includes('{{') && line.includes('}}');
                         for (const entry of parsed) {
-                            const startPos = entry[1] as number;
-                            const endPos = entry[2] as number;
-                            if (cursorCh > startPos && cursorCh < endPos) {
+                            let startPos = entry[1] as number;
+                            let endPos = entry[2] as number;
+                            if (isForced) {
+                                startPos += 2;
+                                endPos += 2;
+                            }
+                            if (cursorCh >= startPos && cursorCh < endPos) {
                                 hasReference = true;
                                 matchedEntry = entry;
                                 break;
@@ -516,6 +521,7 @@ export default class ConversumPlugin extends Plugin {
                 this.showReadingModeMenu(evt, null);
                 return;
             }
+            // @ts-ignore
             const range = activeDocument.caretRangeFromPoint(evt.clientX, evt.clientY);
             let isAtEnd = false;
             if (range) {
@@ -641,6 +647,7 @@ export default class ConversumPlugin extends Plugin {
                 });
             });
             if (parsed && parsed.length > 0) {
+                // @ts-ignore
                 const range = activeDocument.caretRangeFromPoint(evt.clientX, evt.clientY);
                 let isOnRef = false;
                 if (range) {
