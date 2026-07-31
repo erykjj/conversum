@@ -407,14 +407,14 @@ export class ConcordanceView extends ItemView {
 
     private createReferenceElement(ref: ReferenceGroup): HTMLElement {
         const refEl = this.container.createDiv();
-        refEl.className = ref.isWholeBook ? 'conversum-reference whole-book' : 'conversum-reference';
+        refEl.className = ref.isWholeBook ? 'conversum-reference' : 'conversum-reference';
         const displayText = ref.formattedText || ref.referenceKey;
         refEl.createSpan({ cls: 'conversum-ref-text', text: displayText });
         refEl.createSpan({ cls: 'conversum-ref-separator', text: ' — ' });
         const filesContainer = refEl.createDiv({ cls: 'conversum-files-inline' });
         for (let i = 0; i < ref.files.length; i++) {
             const file = ref.files[i];
-            const unit = filesContainer.createSpan({ cls: 'conversum-file-unit' });
+            const unit = filesContainer.createSpan();
             const link = unit.createEl('a', {
                 cls: 'conversum-file-link',
                 text: file.path.replace(/\.md$/, '')
