@@ -285,7 +285,11 @@ export class ConcordanceView extends ItemView {
                 this.toggleBook(book.bookId);
             });
             const chaptersContainer = bookEl.createDiv({ cls: 'conversum-chapters' });
-            chaptersContainer.style.display = book.expanded ? 'block' : 'none';
+            if (book.expanded) {
+                chaptersContainer.removeClass('conversum-hidden');
+            } else {
+                chaptersContainer.addClass('conversum-hidden');
+            }
             chaptersContainer.dataset.bookId = String(book.bookId);
             if (book.expanded) {
                 this.buildChaptersForBook(chaptersContainer, book.bookId);
@@ -317,7 +321,11 @@ export class ConcordanceView extends ItemView {
                 this.toggleChapter(bookId, chapter.chapter);
             });
             const refsContainer = chapterEl.createDiv({ cls: 'conversum-references' });
-            refsContainer.style.display = chapter.expanded ? 'block' : 'none';
+            if (chapter.expanded) {
+                refsContainer.removeClass('conversum-hidden');
+            } else {
+                refsContainer.addClass('conversum-hidden');
+            }
             refsContainer.dataset.chapterKey = chapterKey;
             if (chapter.expanded) {
                 this.buildReferencesForChapter(refsContainer, chapter.references);
@@ -333,7 +341,7 @@ export class ConcordanceView extends ItemView {
             this.expandedBooks.delete(bookId);
             const chaptersContainer = bookEl.querySelector('.conversum-chapters') as HTMLElement;
             if (chaptersContainer) {
-                chaptersContainer.style.display = 'none';
+                chaptersContainer.addClass('conversum-hidden');
             }
             const toggle = bookEl.querySelector('.conversum-toggle') as HTMLElement;
             if (toggle) toggle.textContent = '▶';
@@ -341,7 +349,7 @@ export class ConcordanceView extends ItemView {
             this.expandedBooks.add(bookId);
             const chaptersContainer = bookEl.querySelector('.conversum-chapters') as HTMLElement;
             if (chaptersContainer) {
-                chaptersContainer.style.display = 'block';
+                chaptersContainer.removeClass('conversum-hidden');
                 if (!chaptersContainer.hasChildNodes() || chaptersContainer.children.length === 0) {
                     this.buildChaptersForBook(chaptersContainer, bookId);
                 }
@@ -360,7 +368,7 @@ export class ConcordanceView extends ItemView {
             this.expandedChapters.delete(chapterKey);
             const refsContainer = chapterEl.querySelector('.conversum-references') as HTMLElement;
             if (refsContainer) {
-                refsContainer.style.display = 'none';
+                refsContainer.addClass('conversum-hidden');
             }
             const toggle = chapterEl.querySelector('.conversum-toggle') as HTMLElement;
             if (toggle) toggle.textContent = '▶';
@@ -368,7 +376,7 @@ export class ConcordanceView extends ItemView {
             this.expandedChapters.add(chapterKey);
             const refsContainer = chapterEl.querySelector('.conversum-references') as HTMLElement;
             if (refsContainer) {
-                refsContainer.style.display = 'block';
+                refsContainer.removeClass('conversum-hidden');
                 if (!refsContainer.hasChildNodes() || refsContainer.children.length === 0) {
                     const book = this.bookGroups.find(b => b.bookId === bookId);
                     if (book) {
@@ -441,7 +449,7 @@ export class ConcordanceView extends ItemView {
             for (const bookEl of allBooks) {
                 const chaptersContainer = (bookEl as HTMLElement).querySelector('.conversum-chapters') as HTMLElement;
                 if (chaptersContainer) {
-                    chaptersContainer.style.display = 'none';
+                    chaptersContainer.addClass('conversum-hidden');
                 }
                 const toggle = (bookEl as HTMLElement).querySelector('.conversum-toggle') as HTMLElement;
                 if (toggle) toggle.textContent = '▶';
@@ -450,7 +458,7 @@ export class ConcordanceView extends ItemView {
             for (const chapterEl of allChapters) {
                 const refsContainer = (chapterEl as HTMLElement).querySelector('.conversum-references') as HTMLElement;
                 if (refsContainer) {
-                    refsContainer.style.display = 'none';
+                    refsContainer.addClass('conversum-hidden');
                 }
                 const toggle = (chapterEl as HTMLElement).querySelector('.conversum-toggle') as HTMLElement;
                 if (toggle) toggle.textContent = '▶';
@@ -468,11 +476,15 @@ export class ConcordanceView extends ItemView {
             for (const book of this.bookGroups) {
                 const bookEl = this.resultsContainer.querySelector(`.conversum-book[data-book-id="${book.bookId}"]`) as HTMLElement;
                 if (!bookEl) continue;
-                bookEl.style.display = 'block';
+                bookEl.removeClass('conversum-hidden');
                 const chaptersContainer = bookEl.querySelector('.conversum-chapters') as HTMLElement;
                 if (chaptersContainer) {
                     const shouldShow = this.expandedBooks.has(book.bookId);
-                    chaptersContainer.style.display = shouldShow ? 'block' : 'none';
+                    if (shouldShow) {
+                        chaptersContainer.removeClass('conversum-hidden');
+                    } else {
+                        chaptersContainer.addClass('conversum-hidden');
+                    }
                     const toggle = bookEl.querySelector('.conversum-toggle') as HTMLElement;
                     if (toggle) toggle.textContent = shouldShow ? '▼' : '▶';
                     for (const chapter of book.chapters) {
@@ -480,12 +492,16 @@ export class ConcordanceView extends ItemView {
                         const chapterEl = chaptersContainer.querySelector(`.conversum-chapter[data-chapter-key="${chapterKey}"]`) as HTMLElement;
                         if (!chapterEl) continue;
                         const isExpanded = this.expandedChapters.has(chapterKey);
-                        chapterEl.style.display = 'block';
+                        chapterEl.removeClass('conversum-hidden');
                         const refsContainer = chapterEl.querySelector('.conversum-references') as HTMLElement;
                         if (refsContainer) {
-                            refsContainer.style.display = isExpanded ? 'block' : 'none';
-                            if (isExpanded && (!refsContainer.hasChildNodes() || refsContainer.children.length === 0)) {
-                                this.buildReferencesForChapter(refsContainer, chapter.references);
+                            if (isExpanded) {
+                                refsContainer.removeClass('conversum-hidden');
+                                if (!refsContainer.hasChildNodes() || refsContainer.children.length === 0) {
+                                    this.buildReferencesForChapter(refsContainer, chapter.references);
+                                }
+                            } else {
+                                refsContainer.addClass('conversum-hidden');
                             }
                         }
                         const toggle2 = chapterEl.querySelector('.conversum-toggle') as HTMLElement;
@@ -528,10 +544,10 @@ export class ConcordanceView extends ItemView {
                     bookHasMatch = true;
                     this.expandedChapters.add(chapterKey);
                     if (chapterEl) {
-                        chapterEl.style.display = 'block';
+                        chapterEl.removeClass('conversum-hidden');
                         const refsContainer = chapterEl.querySelector('.conversum-references') as HTMLElement;
                         if (refsContainer) {
-                            refsContainer.style.display = 'block';
+                            refsContainer.removeClass('conversum-hidden');
                             refsContainer.innerHTML = '';
                             for (const ref of matchingRefs) {
                                 const refEl = this.createReferenceElement(ref);
@@ -544,24 +560,25 @@ export class ConcordanceView extends ItemView {
                 } else {
                     this.expandedChapters.delete(chapterKey);
                     if (chapterEl) {
-                        chapterEl.style.display = 'none';
+                        chapterEl.addClass('conversum-hidden');
                         const toggle = chapterEl.querySelector('.conversum-toggle') as HTMLElement;
                         if (toggle) toggle.textContent = '▶';
                     }
                 }
             }
-            bookEl.style.display = bookHasMatch ? 'block' : 'none';
             if (bookHasMatch) {
+                bookEl.removeClass('conversum-hidden');
                 this.expandedBooks.add(book.bookId);
                 if (bookChaptersContainer) {
-                    bookChaptersContainer.style.display = 'block';
+                    bookChaptersContainer.removeClass('conversum-hidden');
                 }
                 const toggle = bookEl.querySelector('.conversum-toggle') as HTMLElement;
                 if (toggle) toggle.textContent = '▼';
             } else {
+                bookEl.addClass('conversum-hidden');
                 this.expandedBooks.delete(book.bookId);
                 if (bookChaptersContainer) {
-                    bookChaptersContainer.style.display = 'none';
+                    bookChaptersContainer.addClass('conversum-hidden');
                 }
                 const toggle = bookEl.querySelector('.conversum-toggle') as HTMLElement;
                 if (toggle) toggle.textContent = '▶';
