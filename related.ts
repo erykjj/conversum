@@ -101,11 +101,18 @@ export class RelatedNotesPopout {
         const otherFiles = allFiles.filter(f => f.path !== currentFilePath);
         const popout = activeDocument.createElement('div');
         popout.className = 'conversum-related-popout';
-        popout.style.position = 'fixed';
-        popout.style.zIndex = '1000';
-        popout.style.maxWidth = '500px';
-        popout.style.minWidth = '200px';
-        popout.style.width = 'auto';
+        popout.setCssStyles?.({
+            position: 'fixed',
+            zIndex: '1000',
+            maxWidth: '500px',
+            minWidth: '200px',
+            width: 'auto'
+        });
+        // popout.style.position = 'fixed';
+        // popout.style.zIndex = '1000';
+        // popout.style.maxWidth = '500px';
+        // popout.style.minWidth = '200px';
+        // popout.style.width = 'auto';
         let left = x + 20;
         let top = y + 10;
         const popoutWidth = 500;
@@ -240,11 +247,18 @@ export class RelatedNotesPopout {
         const otherFiles = allFiles.filter(f => f.path !== currentFilePath);
         const popout = activeDocument.createElement('div');
         popout.className = 'conversum-related-popout';
-        popout.style.position = 'fixed';
-        popout.style.zIndex = '1000';
-        popout.style.maxWidth = '500px';
-        popout.style.minWidth = '200px';
-        popout.style.width = 'auto';
+        popout.setCssStyles?.({
+            position: 'fixed',
+            zIndex: '1000',
+            maxWidth: '500px',
+            minWidth: '200px',
+            width: 'auto'
+        });
+        // popout.style.position = 'fixed';
+        // popout.style.zIndex = '1000';
+        // popout.style.maxWidth = '500px';
+        // popout.style.minWidth = '200px';
+        // popout.style.width = 'auto';
         let left = x + 20;
         let top = y + 10;
         const popoutWidth = 500;
