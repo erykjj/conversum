@@ -50,7 +50,7 @@ export class IndexDatabase {
                     );
                     dbData = new Uint8Array(fileContent);
                 }
-            } catch (e) {
+            } catch {
                 console.log('con[VER]sum: No existing database file found, creating new one'); // DEBUG
             }
             this.db = dbData ? new SQL.Database(dbData) : new SQL.Database();
@@ -947,10 +947,7 @@ export class IndexDatabase {
                     this.rollbackTransaction();
                 }
             }
-            try {
-                this.db.run('VACUUM');
-            } catch {
-            }
+            this.db.run('VACUUM');
             await this.saveToDisk();
             this.db.close();
             this.db = null;
