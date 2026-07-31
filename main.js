@@ -2783,7 +2783,6 @@ var IndexDatabase = class {
   async init() {
     if (this.initialized) return;
     try {
-      console.log("con[VER]sum: Initializing SQLite...");
       const SQL = await (0, import_sql.default)({
         locateFile: (file) => {
           return `data:application/wasm;base64,${SQL_WASM_BASE64}`;
@@ -2802,7 +2801,6 @@ var IndexDatabase = class {
           dbData = new Uint8Array(fileContent);
         }
       } catch {
-        console.log("con[VER]sum: No existing database file found, creating new one");
       }
       this.db = dbData ? new SQL.Database(dbData) : new SQL.Database();
       this.db.run("PRAGMA foreign_keys = ON;");
@@ -2810,7 +2808,6 @@ var IndexDatabase = class {
       this.cleanupOrphans();
       await this.loadDataFromDB();
       this.initialized = true;
-      console.log("con[VER]sum: SQLite initialized");
       await this.saveToDisk();
     } catch (e) {
       console.error("con[VER]sum: Failed to initialize SQLite:", e);
@@ -3608,7 +3605,6 @@ var IndexDatabase = class {
       this.db.close();
       this.db = null;
       this.initialized = false;
-      console.log("con[VER]sum: SQLite closed");
     }
   }
 };
@@ -3807,7 +3803,6 @@ var ScriptureIndexer = class {
     }
     this.isFormatting = true;
     this.formattingAbortRequested = false;
-    console.log(`con[VER]sum: Starting background formatting (${unformattedCount} unformatted references)`);
     this.plugin.refreshSettings();
     this.formattingTimeout = window.setTimeout(() => {
       this.formatBatch();
@@ -3822,7 +3817,6 @@ var ScriptureIndexer = class {
     const rangeKeys = this.db.getUnformattedRangeKeys(this.formattingBatchSize);
     if (rangeKeys.length === 0) {
       this.isFormatting = false;
-      console.log("con[VER]sum: Formatting complete");
       this.plugin.refreshConcordanceView();
       this.plugin.refreshSettings();
       return;
@@ -3862,7 +3856,7 @@ var ScriptureIndexer = class {
       this.formattingTimeout = window.setTimeout(() => {
         this.formatBatch();
       }, this.formattingDelayMs);
-    } catch (e) {
+    } catch {
       this.db.rollbackTransaction();
       this.isFormatting = false;
       this.plugin.refreshSettings();
@@ -4001,7 +3995,6 @@ var ScriptureIndexer = class {
       } catch {
       }
       const totalTime = Date.now() - startTime;
-      console.log(`con[VER]sum: Index rebuild complete: ${Object.keys(newData.references).length} unique refs in ${(totalTime / 1e3).toFixed(2)}s`);
       this.progress.status = "complete";
       this.progress.currentFile = void 0;
       onProgress?.(this.progress);
@@ -4198,7 +4191,6 @@ var ScriptureIndexer = class {
     this.nameFormat = nameFormat;
     this.excludedFolders = excludedFolders;
     if (outputChanged) {
-      console.log("con[VER]sum: Output language or format changed, clearing formatted cache...");
       void this.clearFormatted().then(() => {
         this.startBackgroundFormatting();
       });
@@ -5447,7 +5439,6 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
     await this.loadSettings();
     try {
       await initEngine();
-      console.log("con[VER]sum: Engine initialized");
     } catch (e) {
       console.error("con[VER]sum: Failed to initialize engine:", e);
       new import_obsidian4.Notice("con[VER]sum: Failed to initialize engine.");
@@ -5470,7 +5461,6 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       this.startFileWatcher();
     }
     this.isStartupComplete = true;
-    console.log("con[VER]sum: Plugin loaded");
   }
   onunload() {
     this.stopFileWatcher();
@@ -5488,7 +5478,6 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
         this.db = null;
       });
     }
-    console.log("con[VER]sum: Plugin unloaded");
   }
   transformForcedReferences(text) {
     if (!text.includes("{{")) return text;
@@ -5524,7 +5513,6 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       return;
     }
     if (hasValidData && this.settings.autoIndex) {
-      console.log(`con[VER]sum: Loaded index with ${Object.keys(data.references).length} references from SQLite`);
       this.app.workspace.onLayoutReady(async () => {
         await this.syncIndexOnStartup();
       });
@@ -5536,14 +5524,12 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       return;
     }
     if (!hasValidData && this.settings.autoIndex) {
-      console.log("con[VER]sum: No index data found, rebuilding...");
       this.app.workspace.onLayoutReady(async () => {
         await this.rebuildIndex();
       });
       return;
     }
     if (!hasValidData && !this.settings.autoIndex) {
-      console.log("con[VER]sum: No index data found and auto-index is disabled. Waiting for user action.");
       this.refreshConcordanceView();
       this.refreshSettings();
       return;
@@ -5551,14 +5537,11 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
   }
   async syncIndexOnStartup() {
     if (!this.indexer || !this.db) {
-      console.log("con[VER]sum: Indexer or database not initialized, skipping sync");
       return;
     }
-    console.log("con[VER]sum: Syncing index on startup...");
     const allFiles = this.app.vault.getMarkdownFiles();
     const data = this.db.getData();
     if (!data || Object.keys(data.fileCache).length === 0) {
-      console.log("con[VER]sum: No existing index data, rebuilding...");
       await this.rebuildIndex();
       return;
     }
@@ -5575,7 +5558,6 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       }
     }
     if (filesToIndex.length > 0) {
-      console.log(`con[VER]sum: Indexing ${filesToIndex.length} new/changed files...`);
       let indexedCount = 0;
       for (const file of filesToIndex) {
         try {
@@ -5584,9 +5566,7 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
         } catch {
         }
       }
-      console.log(`con[VER]sum: Indexed ${indexedCount} files`);
     }
-    console.log("con[VER]sum: Checking for deleted files...");
     const freshData = this.db.getData();
     const freshFileCache = freshData.fileCache || {};
     let removedCount = 0;
@@ -5597,14 +5577,11 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       }
     }
     if (removedCount > 0) {
-      console.log(`con[VER]sum: Removed ${removedCount} deleted files from index`);
     }
     const unformattedCount = this.db.getUnformattedCount();
     if (unformattedCount > 0) {
-      console.log(`con[VER]sum: ${unformattedCount} references need formatting, starting background process...`);
       this.indexer.startBackgroundFormatting();
     } else {
-      console.log("con[VER]sum: All references formatted");
     }
     this.refreshConcordanceView();
     this.refreshSettings();
@@ -5700,7 +5677,7 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       window.setTimeout(() => notice.hide(), 2e3);
       this.refreshConcordanceView();
       this.refreshSettings();
-    } catch (e) {
+    } catch {
       notice.setMessage("Index rebuild failed. See console for details.");
       window.setTimeout(() => notice.hide(), 3e3);
     }
@@ -5819,10 +5796,15 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
           );
           if (parsed && parsed.length > 0) {
             const cursorCh = cursor.ch;
+            const isForced = line.includes("{{") && line.includes("}}");
             for (const entry of parsed) {
-              const startPos = entry[1];
-              const endPos = entry[2];
-              if (cursorCh > startPos && cursorCh < endPos) {
+              let startPos = entry[1];
+              let endPos = entry[2];
+              if (isForced) {
+                startPos += 2;
+                endPos += 2;
+              }
+              if (cursorCh >= startPos && cursorCh < endPos) {
                 hasReference = true;
                 matchedEntry = entry;
                 break;
