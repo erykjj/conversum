@@ -188,4 +188,99 @@ export class ConversumSettingTab extends PluginSettingTab {
         obsidianLink.setAttribute('target', '_blank');
         obsidianLink.setAttribute('rel', 'noopener noreferrer');
     }
+
+    getSettingDefinitions(): any[] {
+        return [
+            {
+                name: 'Source language',
+                description: 'Language of the scripture references in your notes',
+                type: 'dropdown',
+                options: getAvailableLanguages().filter((l: any) => l.code !== 'ase').map((l: any) => ({
+                    value: l.code,
+                    display: `${l.vernacularName} (${l.code})`
+                })),
+                setting: this.plugin.settings.sourceLanguage,
+                onChange: async (value: string) => {
+                    this.plugin.settings.sourceLanguage = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.updateIndexerSettings();
+                    await this.plugin.rebuildIndex();
+                    this.display();
+                    new Notice(`Source language updated to ${value}. Reindexing complete.`);
+                }
+            },
+            {
+                name: 'Output language',
+                description: 'Language for displaying book names and references',
+                type: 'dropdown',
+                options: getAvailableLanguages().filter((l: any) => l.code !== 'ase').map((l: any) => ({
+                    value: l.code,
+                    display: `${l.vernacularName} (${l.code})`
+                })),
+                setting: this.plugin.settings.outputLanguage,
+                onChange: async (value: string) => {
+                    this.plugin.settings.outputLanguage = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.updateIndexerSettings();
+                    await this.plugin.reformatAllReferences();
+                    this.display();
+                    new Notice(`Output language updated to ${value}`);
+                }
+            },
+            {
+                name: 'Reference format',
+                description: 'How scripture references are displayed',
+                type: 'dropdown',
+                options: [
+                    { value: 'full', display: 'Full (1 Corinthians)' },
+                    { value: 'standard', display: 'Standard (1 Cor.)' },
+                    { value: 'official', display: 'Official (1Co)' }
+                ],
+                setting: this.plugin.settings.nameFormat,
+                onChange: async (value: string) => {
+                    this.plugin.settings.nameFormat = value as 'full' | 'standard' | 'official';
+                    await this.plugin.saveSettings();
+                    this.plugin.updateIndexerSettings();
+                    await this.plugin.reformatAllReferences();
+                    this.display();
+                }
+            },
+            {
+                name: 'Auto-index',
+                description: 'Automatically update the index when files change',
+                type: 'toggle',
+                setting: this.plugin.settings.autoIndex,
+                onChange: async (value: boolean) => {
+                    this.plugin.settings.autoIndex = value;
+                    await this.plugin.saveSettings();
+                    if (value) {
+                        this.plugin.startFileWatcher();
+                        const data = this.plugin.indexer?.getData();
+                        if (!data || Object.keys(data.references).length === 0) {
+                            await this.plugin.rebuildIndex();
+                        }
+                    } else {
+                        this.plugin.stopFileWatcher();
+                    }
+                    this.display();
+                }
+            },
+            {
+                name: 'Excluded folders',
+                description: 'Folders to exclude from indexing',
+                type: 'text',
+                setting: this.plugin.settings.excludedFolders.join(', '),
+                onChange: async (value: string) => {
+                    const folders = value.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+                    this.plugin.settings.excludedFolders = folders;
+                    await this.plugin.saveSettings();
+                    this.plugin.updateIndexerSettings();
+                    if (this.plugin.settings.autoIndex) {
+                        await this.plugin.rebuildIndex();
+                    }
+                    this.display();
+                }
+            }
+        ];
+    }
 }
