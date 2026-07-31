@@ -22,7 +22,7 @@ export class ConversumSettingTab extends PluginSettingTab {
             text: `v${this.plugin.manifest.version} – ${engineVersion}`,
             cls: 'conversum-version-info'
         });
-        new Setting(containerEl).setName('Language Settings').setHeading();
+        new Setting(containerEl).setName('Language Options').setHeading();
         const languages = getAvailableLanguages();
         const nonAslLanguages = languages.filter((l: any) => l.code !== 'ase');
         new Setting(containerEl)
@@ -76,7 +76,7 @@ export class ConversumSettingTab extends PluginSettingTab {
                     this.display();
                 });
             });
-        new Setting(containerEl).setName('Index Settings').setHeading();
+        new Setting(containerEl).setName('Index Options').setHeading();
         new Setting(containerEl)
             .setName('Auto-index')
             .setDesc('Automatically update the index when files change.')
@@ -97,9 +97,10 @@ export class ConversumSettingTab extends PluginSettingTab {
                     this.display();
                 });
             });
+        const configDir = this.plugin.app.vault.configDir;
         new Setting(containerEl)
             .setName('Excluded folders')
-            .setDesc('Additional folders to exclude from indexing (comma-separated). _templates, _attachments, and .obsidian are always excluded.')
+            .setDesc(`Additional folders to exclude from indexing (comma-separated). _templates, _attachments, and ${configDir} are always excluded.`)
             .addText((text) => {
                 text.setPlaceholder('my_notes, drafts, archive');
                 text.setValue(this.plugin.settings.excludedFolders.join(', '));
@@ -168,16 +169,23 @@ export class ConversumSettingTab extends PluginSettingTab {
             });
         }
         const footerEl = containerEl.createDiv({ cls: 'conversum-settings-footer' });
-        footerEl.style.marginTop = '20px';
-        footerEl.style.paddingTop = '12px';
-        footerEl.style.borderTop = '1px solid var(--background-modifier-border)';
-        footerEl.style.fontSize = '0.75rem';
-        footerEl.style.color = 'var(--text-muted)';
-        footerEl.style.textAlign = 'center';
-        footerEl.innerHTML = `
-            My other Obsidian plugin: <strong>tra.VER:ture</strong>:
-            <a href="https://github.com/erykjj/traverture" target="_blank" rel="noopener noreferrer">GitHub repo</a>,
-            <a href="https://community.obsidian.md/plugins/traverture" target="_blank" rel="noopener noreferrer">Obsidian Community</a>
-        `;
+        footerEl.addClass('conversum-settings-footer');
+        const footerText = footerEl.createSpan();
+        footerText.appendChild(document.createTextNode('My other Obsidian plugin: '));
+        const strong = footerText.createEl('strong', { text: 'tra.VER:ture' });
+        footerText.appendChild(document.createTextNode(': '));
+        const githubLink = footerText.createEl('a', {
+            text: 'GitHub repo',
+            href: 'https://github.com/erykjj/traverture'
+        });
+        githubLink.setAttribute('target', '_blank');
+        githubLink.setAttribute('rel', 'noopener noreferrer');
+        footerText.appendChild(document.createTextNode(', '));
+        const obsidianLink = footerText.createEl('a', {
+            text: 'Obsidian Community',
+            href: 'https://community.obsidian.md/plugins/traverture'
+        });
+        obsidianLink.setAttribute('target', '_blank');
+        obsidianLink.setAttribute('rel', 'noopener noreferrer');
     }
 }
