@@ -14,7 +14,7 @@ If you are concerned about the "Scorecard" review or the "Caution" warning on th
 
 ---
 
-**Important:** Set your source and output languages and format before enabling auto-index. The initial index build may take 5 minutes or more on a vault with many notes.
+**Important:** Set your source and output languages and format before enabling auto-index. The initial index build may take up to 5 minutes (or more) on a vault with many notes.
 
 ## Features
 
