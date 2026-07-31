@@ -60,7 +60,7 @@ export default class ConversumPlugin extends Plugin {
         console.log('con[VER]sum: Plugin loaded'); // DEBUG
     }
 
-    async onunload(): Promise<void> {
+    onunload(): void {
         this.stopFileWatcher();
         if (this.rebuildTimeout) {
             window.clearTimeout(this.rebuildTimeout);
@@ -72,8 +72,9 @@ export default class ConversumPlugin extends Plugin {
         }
         clearEnginePool();
         if (this.db) {
-            await this.db.close();
-            this.db = null;
+            void this.db.close().then(() => {
+                this.db = null;
+            });
         }
         console.log('con[VER]sum: Plugin unloaded'); // DEBUG
     }
@@ -941,7 +942,7 @@ export default class ConversumPlugin extends Plugin {
             const file = await this.app.vault.create(filePath, content);
             await this.app.workspace.openLinkText(file.path, '');
             new Notice(`Concordance exported: ${fileName}`);
-        } catch (e) {
+        } catch {
             new Notice('Export failed. See console for details.');
         }
     }
