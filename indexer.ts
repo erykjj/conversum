@@ -253,7 +253,7 @@ export class ScriptureIndexer {
         }
         this.isFormatting = true;
         this.formattingAbortRequested = false;
-        console.log(`con[VER]sum: Starting background formatting (${unformattedCount} unformatted references)`); // DEBUG
+        // console.log(`con[VER]sum: Starting background formatting (${unformattedCount} unformatted references)`); // DEBUG
         this.plugin.refreshSettings();
         this.formattingTimeout = window.setTimeout(() => {
             this.formatBatch();
@@ -269,7 +269,7 @@ export class ScriptureIndexer {
         const rangeKeys = this.db.getUnformattedRangeKeys(this.formattingBatchSize);
         if (rangeKeys.length === 0) {
             this.isFormatting = false;
-            console.log('con[VER]sum: Formatting complete'); // DEBUG
+            // console.log('con[VER]sum: Formatting complete'); // DEBUG
             this.plugin.refreshConcordanceView();
             this.plugin.refreshSettings();
             return;
@@ -309,7 +309,7 @@ export class ScriptureIndexer {
             this.formattingTimeout = window.setTimeout(() => {
                 this.formatBatch();
             }, this.formattingDelayMs);
-        } catch (e) {
+        } catch {
             this.db.rollbackTransaction();
             this.isFormatting = false;
             this.plugin.refreshSettings();
@@ -451,7 +451,7 @@ export class ScriptureIndexer {
             } catch {
             }
             const totalTime = Date.now() - startTime;
-            console.log(`con[VER]sum: Index rebuild complete: ${Object.keys(newData.references).length} unique refs in ${(totalTime / 1000).toFixed(2)}s`); // DEBUG
+            // console.log(`con[VER]sum: Index rebuild complete: ${Object.keys(newData.references).length} unique refs in ${(totalTime / 1000).toFixed(2)}s`); // DEBUG
             this.progress.status = 'complete';
             this.progress.currentFile = undefined;
             onProgress?.(this.progress);
@@ -663,7 +663,7 @@ export class ScriptureIndexer {
         this.nameFormat = nameFormat;
         this.excludedFolders = excludedFolders;
         if (outputChanged) {
-            console.log('con[VER]sum: Output language or format changed, clearing formatted cache...'); // DEBUG
+            // console.log('con[VER]sum: Output language or format changed, clearing formatted cache...'); // DEBUG
             void this.clearFormatted().then(() => {
                 this.startBackgroundFormatting();
             });
