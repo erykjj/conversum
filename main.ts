@@ -182,11 +182,11 @@ export default class ConversumPlugin extends Plugin {
 
         if (filesToIndex.length > 0) {
             // console.log(`con[VER]sum: Indexing ${filesToIndex.length} new/changed files...`); // DEBUG
-            let indexedCount = 0;
+            // let indexedCount = 0; // DEBUG
             for (const file of filesToIndex) {
                 try {
                     await this.indexer.updateFile(file, true);
-                    indexedCount++;
+                    // indexedCount++; // DEBUG
                 } catch {
                 }
             }
@@ -521,15 +521,14 @@ export default class ConversumPlugin extends Plugin {
                 this.showReadingModeMenu(evt, null);
                 return;
             }
-            // @ts-ignore
-            const range = activeDocument.caretRangeFromPoint(evt.clientX, evt.clientY);
+            const position = activeDocument.caretPositionFromPoint(evt.clientX, evt.clientY);
             let isAtEnd = false;
-            if (range) {
-                const container = range.startContainer;
-                if (container.nodeType === Node.TEXT_NODE) {
+            if (position) {
+                const container = position.offsetNode;
+                const offset = position.offset;
+                if (container && container.nodeType === Node.TEXT_NODE) {
                     const textNode = container as Text;
                     const text = textNode.textContent || '';
-                    const offset = range.startOffset;
                     if (offset >= text.length) {
                         let nextSibling = textNode.nextSibling;
                         let hasTextAfter = false;
@@ -589,9 +588,9 @@ export default class ConversumPlugin extends Plugin {
                     textToParse = linkText;
                 }
             } else {
-                if (range && range.startContainer) {
-                    const container = range.startContainer;
-                    if (container.nodeType === Node.TEXT_NODE) {
+                if (position) {
+                    const container = position.offsetNode;
+                    if (container && container.nodeType === Node.TEXT_NODE) {
                         const textNode = container as Text;
                         const fullText = textNode.textContent || '';
                         const forceMatch = fullText.match(/\{\{(.+?)\}\}/);
@@ -647,14 +646,13 @@ export default class ConversumPlugin extends Plugin {
                 });
             });
             if (parsed && parsed.length > 0) {
-                // @ts-ignore
-                const range = activeDocument.caretRangeFromPoint(evt.clientX, evt.clientY);
+                const position = activeDocument.caretPositionFromPoint(evt.clientX, evt.clientY);
                 let isOnRef = false;
-                if (range) {
-                    const node = range.startContainer;
-                    if (node.nodeType === Node.TEXT_NODE) {
+                if (position) {
+                    const node = position.offsetNode;
+                    const offset = position.offset;
+                    if (node && node.nodeType === Node.TEXT_NODE) {
                         const text = (node as Text).textContent || '';
-                        const offset = range.startOffset;
                         const refText = parsed[0][0] as string;
                         const cleanText = text.replace(/\{\{|\}\}/g, '');
                         if (cleanText.includes(refText)) {
@@ -667,14 +665,12 @@ export default class ConversumPlugin extends Plugin {
                                 isOnRef = true;
                             }
                         }
-                    } else {
-                        const parent = node.parentElement;
-                        if (parent) {
-                            const text = parent.textContent || '';
-                            const refText = parsed[0][0] as string;
-                            if (text.includes(refText)) {
-                                isOnRef = true;
-                            }
+                    } else if (node && node.nodeType === Node.ELEMENT_NODE) {
+                        const parent = node as Element;
+                        const text = parent.textContent || '';
+                        const refText = parsed[0][0] as string;
+                        if (text.includes(refText)) {
+                            isOnRef = true;
                         }
                     }
                 }
