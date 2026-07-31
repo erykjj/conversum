@@ -22,7 +22,8 @@ export class ConversumSettingTab extends PluginSettingTab {
             text: `v${this.plugin.manifest.version} – ${engineVersion}`,
             cls: 'conversum-version-info'
         });
-        new Setting(containerEl).setName('Language Options').setHeading();
+        // new Setting(containerEl).setName('Language Options').setHeading();
+        new Setting(containerEl.createEl('h3', { text: 'Language Options' }))
         const languages = getAvailableLanguages();
         const nonAslLanguages = languages.filter((l: any) => l.code !== 'ase');
         new Setting(containerEl)
@@ -76,7 +77,7 @@ export class ConversumSettingTab extends PluginSettingTab {
                     this.display();
                 });
             });
-        new Setting(containerEl).setName('Index Options').setHeading();
+        new Setting(containerEl).setName('Index').setHeading();
         new Setting(containerEl)
             .setName('Auto-index')
             .setDesc('Automatically update the index when files change.')
