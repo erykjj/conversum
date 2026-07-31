@@ -4201,7 +4201,6 @@ var ScriptureIndexer = class {
       console.log("con[VER]sum: Output language or format changed, clearing formatted cache...");
       void this.clearFormatted().then(() => {
         this.startBackgroundFormatting();
-      }).catch(() => {
       });
     }
   }
@@ -4589,7 +4588,7 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
       text: `v${this.plugin.manifest.version} \u2013 ${engineVersion}`,
       cls: "conversum-version-info"
     });
-    new import_obsidian2.Setting(containerEl.createEl("h3", { text: "Language Options" }));
+    new import_obsidian2.Setting(containerEl).setName("Language").setHeading();
     const languages = getAvailableLanguages();
     const nonAslLanguages = languages.filter((l) => l.code !== "ase");
     new import_obsidian2.Setting(containerEl).setName("Source language").setDesc("Language of the scripture references in your notes. Changing this will force a full reindex of all notes.").addDropdown((dropdown) => {
