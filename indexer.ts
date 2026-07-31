@@ -274,7 +274,6 @@ export class ScriptureIndexer {
             this.plugin.refreshSettings();
             return;
         }
-        let successCount = 0;
         try {
             this.db.beginTransaction();
             for (const rangeKey of rangeKeys) {
@@ -282,7 +281,6 @@ export class ScriptureIndexer {
                 try {
                     const data = this.db.getOccurrenceData(rangeKey);
                     if (!data) {
-                        successCount++;
                         continue;
                     }
                     const ranges: Array<[string, string]> = [[
@@ -296,9 +294,7 @@ export class ScriptureIndexer {
                     );
                     const formatted = decoded && decoded.length > 0 ? decoded[0] : `${data.startBcv}-${data.endBcv}`;
                     this.db.updateFormatted(rangeKey, formatted);
-                    successCount++;
                 } catch {
-                    successCount++;
                 }
             }
             if (!this.formattingAbortRequested) {
@@ -619,7 +615,6 @@ export class ScriptureIndexer {
                 try {
                     const formatted = this.db.getFormatted(rangeKey);
                     if (!formatted) continue;
-                    const files = this.db.getFilesWithCounts(rangeKey);
                 } catch {
                 }
             }
