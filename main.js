@@ -3994,7 +3994,6 @@ var ScriptureIndexer = class {
         await this.plugin.saveSettings();
       } catch {
       }
-      const totalTime = Date.now() - startTime;
       this.progress.status = "complete";
       this.progress.currentFile = void 0;
       onProgress?.(this.progress);
@@ -5558,11 +5557,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       }
     }
     if (filesToIndex.length > 0) {
-      let indexedCount = 0;
       for (const file of filesToIndex) {
         try {
           await this.indexer.updateFile(file, true);
-          indexedCount++;
         } catch {
         }
       }
@@ -5852,14 +5849,14 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
         this.showReadingModeMenu(evt, null);
         return;
       }
-      const range = activeDocument.caretRangeFromPoint(evt.clientX, evt.clientY);
+      const position = activeDocument.caretPositionFromPoint(evt.clientX, evt.clientY);
       let isAtEnd = false;
-      if (range) {
-        const container = range.startContainer;
-        if (container.nodeType === Node.TEXT_NODE) {
+      if (position) {
+        const container = position.offsetNode;
+        const offset = position.offset;
+        if (container && container.nodeType === Node.TEXT_NODE) {
           const textNode = container;
           const text = textNode.textContent || "";
-          const offset = range.startOffset;
           if (offset >= text.length) {
             let nextSibling = textNode.nextSibling;
             let hasTextAfter = false;
@@ -5919,9 +5916,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
           textToParse = linkText;
         }
       } else {
-        if (range && range.startContainer) {
-          const container = range.startContainer;
-          if (container.nodeType === Node.TEXT_NODE) {
+        if (position) {
+          const container = position.offsetNode;
+          if (container && container.nodeType === Node.TEXT_NODE) {
             const textNode = container;
             const fullText = textNode.textContent || "";
             const forceMatch = fullText.match(/\{\{(.+?)\}\}/);
@@ -5976,13 +5973,13 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
         });
       });
       if (parsed && parsed.length > 0) {
-        const range = activeDocument.caretRangeFromPoint(evt.clientX, evt.clientY);
+        const position = activeDocument.caretPositionFromPoint(evt.clientX, evt.clientY);
         let isOnRef = false;
-        if (range) {
-          const node = range.startContainer;
-          if (node.nodeType === Node.TEXT_NODE) {
+        if (position) {
+          const node = position.offsetNode;
+          const offset = position.offset;
+          if (node && node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent || "";
-            const offset = range.startOffset;
             const refText = parsed[0][0];
             const cleanText = text.replace(/\{\{|\}\}/g, "");
             if (cleanText.includes(refText)) {
@@ -5995,14 +5992,12 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
                 isOnRef = true;
               }
             }
-          } else {
-            const parent = node.parentElement;
-            if (parent) {
-              const text = parent.textContent || "";
-              const refText = parsed[0][0];
-              if (text.includes(refText)) {
-                isOnRef = true;
-              }
+          } else if (node && node.nodeType === Node.ELEMENT_NODE) {
+            const parent = node;
+            const text = parent.textContent || "";
+            const refText = parsed[0][0];
+            if (text.includes(refText)) {
+              isOnRef = true;
             }
           }
         }
