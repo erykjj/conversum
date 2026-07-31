@@ -96,6 +96,5 @@ jobs:
           fi
           gh release create "$TAG" \
             --title="$TAG" \
-            --prerelease \
             --notes="${{ steps.extract.outputs.changelog_section }}" \
             main.js manifest.json styles.css
