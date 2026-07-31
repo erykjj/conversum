@@ -4348,11 +4348,6 @@ var RelatedNotesPopout = class {
     const otherFiles = allFiles.filter((f) => f.path !== currentFilePath);
     const popout = activeDocument.createElement("div");
     popout.className = "conversum-related-popout";
-    popout.style.position = "fixed";
-    popout.style.zIndex = "1000";
-    popout.style.maxWidth = "500px";
-    popout.style.minWidth = "200px";
-    popout.style.width = "auto";
     let left = x + 20;
     let top = y + 10;
     const popoutWidth = 500;
@@ -4474,11 +4469,6 @@ var RelatedNotesPopout = class {
     const otherFiles = allFiles.filter((f) => f.path !== currentFilePath);
     const popout = activeDocument.createElement("div");
     popout.className = "conversum-related-popout";
-    popout.style.position = "fixed";
-    popout.style.zIndex = "1000";
-    popout.style.maxWidth = "500px";
-    popout.style.minWidth = "200px";
-    popout.style.width = "auto";
     let left = x + 20;
     let top = y + 10;
     const popoutWidth = 500;
@@ -4725,7 +4715,7 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
     footerEl.addClass("conversum-settings-footer");
     const footerText = footerEl.createSpan();
     footerText.appendChild(document.createTextNode("My other Obsidian plugin: "));
-    const strong = footerText.createEl("strong", { text: "tra.VER:ture" });
+    footerText.createEl("strong", { text: "tra.VER:ture" });
     footerText.appendChild(document.createTextNode(": "));
     const githubLink = footerText.createEl("a", {
       text: "GitHub repo",
