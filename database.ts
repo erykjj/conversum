@@ -32,7 +32,7 @@ export class IndexDatabase {
     async init(): Promise<void> {
         if (this.initialized) return;
         try {
-            console.log('con[VER]sum: Initializing SQLite...'); // DEBUG
+            // console.log('con[VER]sum: Initializing SQLite...'); // DEBUG
             const SQL = await initSqlJs({
                 locateFile: (file: string) => {
                     return `data:application/wasm;base64,${SQL_WASM_BASE64}`;
@@ -51,7 +51,7 @@ export class IndexDatabase {
                     dbData = new Uint8Array(fileContent);
                 }
             } catch {
-                console.log('con[VER]sum: No existing database file found, creating new one'); // DEBUG
+                // console.log('con[VER]sum: No existing database file found, creating new one'); // DEBUG
             }
             this.db = dbData ? new SQL.Database(dbData) : new SQL.Database();
             this.db.run('PRAGMA foreign_keys = ON;');
@@ -59,7 +59,7 @@ export class IndexDatabase {
             this.cleanupOrphans();
             await this.loadDataFromDB();
             this.initialized = true;
-            console.log('con[VER]sum: SQLite initialized'); // DEBUG
+            // console.log('con[VER]sum: SQLite initialized'); // DEBUG
             await this.saveToDisk();
         } catch (e) {
             console.error('con[VER]sum: Failed to initialize SQLite:', e);
@@ -952,7 +952,7 @@ export class IndexDatabase {
             this.db.close();
             this.db = null;
             this.initialized = false;
-            console.log('con[VER]sum: SQLite closed'); // DEBUG
+            // console.log('con[VER]sum: SQLite closed'); // DEBUG
         }
     }
 }
