@@ -3884,7 +3884,6 @@ var ScriptureIndexer = class {
       await this.plugin.saveSettings();
     } catch {
     }
-    const startTime = Date.now();
     try {
       const files = this.vault.getMarkdownFiles();
       const filteredFiles = files.filter((f) => !this.isExcluded(f.path));
@@ -5217,14 +5216,14 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
   }
   createReferenceElement(ref) {
     const refEl = this.container.createDiv();
-    refEl.className = ref.isWholeBook ? "conversum-reference whole-book" : "conversum-reference";
+    refEl.className = ref.isWholeBook ? "conversum-reference" : "conversum-reference";
     const displayText = ref.formattedText || ref.referenceKey;
     refEl.createSpan({ cls: "conversum-ref-text", text: displayText });
     refEl.createSpan({ cls: "conversum-ref-separator", text: " \u2014 " });
     const filesContainer = refEl.createDiv({ cls: "conversum-files-inline" });
     for (let i = 0; i < ref.files.length; i++) {
       const file = ref.files[i];
-      const unit = filesContainer.createSpan({ cls: "conversum-file-unit" });
+      const unit = filesContainer.createSpan();
       const link = unit.createEl("a", {
         cls: "conversum-file-link",
         text: file.path.replace(/\.md$/, "")
