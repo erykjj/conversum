@@ -412,6 +412,29 @@
 }
 
 /* ============================================================
+   FORMATTING STATE
+   ============================================================ */
+
+.conversum-formatting {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.conversum-formatting-message {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-normal);
+    margin: 0 0 4px 0;
+}
+
+.conversum-formatting-submessage {
+    font-size: 0.8rem;
+    margin: 0;
+    color: var(--text-muted);
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 
@@ -436,13 +459,5 @@
 
     .conversum-references {
         padding-left: 12px;
-    }
-
-    .conversum-related-header {
-        flex-wrap: wrap;
-    }
-
-    .conversum-related-header h3 {
-        font-size: 0.85rem;
     }
 }
