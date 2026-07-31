@@ -390,6 +390,15 @@
     color: var(--text-muted);
 }
 
+.conversum-settings-footer {
+    margin-top: 20px;
+    padding-top: 12px;
+    border-top: 1px solid var(--background-modifier-border);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
 .conversum-settings-footer a {
     color: var(--text-accent);
     text-decoration: none;
