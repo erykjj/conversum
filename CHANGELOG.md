@@ -11,7 +11,7 @@
 ### Removed
 
 ____
-## 0.3.0 - 2026-07-31
+## 1.0.0 - 2026-07-31
 
 - Initial Obsidian Community release
 
@@ -26,6 +26,6 @@ ____
 - Initial *beta* release
 
 ____
-[0.3.0]:https://github.com/erykjj/conversum/releases/tag/0.3.0
+[1.0.0]:https://github.com/erykjj/conversum/releases/tag/1.0.0
 [0.1.5]:https://github.com/erykjj/conversum/releases/tag/0.1.5
 [0.1.0]:https://github.com/erykjj/conversum/releases/tag/0.1.0
