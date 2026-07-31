@@ -666,7 +666,6 @@ export class ScriptureIndexer {
             console.log('con[VER]sum: Output language or format changed, clearing formatted cache...'); // DEBUG
             void this.clearFormatted().then(() => {
                 this.startBackgroundFormatting();
-            }).catch(() => {
             });
         }
     }
