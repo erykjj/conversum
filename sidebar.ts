@@ -166,11 +166,22 @@ export class ConcordanceView extends ItemView {
             const chapters: ChapterGroup[] = [];
             let bookTotalRefs = 0;
             let bookTotalFiles = new Set<string>();
-            for (const [chapter, refs] of chapterMap) {
+            const sortedChapters = Array.from(chapterMap.keys()).sort((a, b) => {
+                if (a === -1) return -1;
+                if (b === -1) return 1;
+                return a - b;
+            });
+            for (const chapter of sortedChapters) {
+                const refs = chapterMap.get(chapter)!;
                 const referenceGroups: ReferenceGroup[] = [];
                 let chapterTotalRefs = 0;
                 let chapterTotalFiles = new Set<string>();
-                for (const [key, entry, formatted] of refs) {
+                const sortedRefs = [...refs].sort((a, b) => {
+                    const aStart = a[0].split('-')[0];
+                    const bStart = b[0].split('-')[0];
+                    return parseInt(aStart.substring(5, 8)) - parseInt(bStart.substring(5, 8));
+                });
+                for (const [key, entry, formatted] of sortedRefs) {
                     let displayText: string;
                     if (formatted) {
                         displayText = formatted;
@@ -387,13 +398,12 @@ export class ConcordanceView extends ItemView {
     }
 
     private createReferenceElement(ref: ReferenceGroup): HTMLElement {
-        const refEl = document.createElement('div');
+        const refEl = this.container.createDiv();
         refEl.className = ref.isWholeBook ? 'conversum-reference whole-book' : 'conversum-reference';
         const displayText = ref.formattedText || ref.referenceKey;
-        const refTextSpan = refEl.createSpan({ cls: 'conversum-ref-text', text: displayText });
-        const separator = refEl.createSpan({ cls: 'conversum-ref-separator', text: ' — ' });
+        refEl.createSpan({ cls: 'conversum-ref-text', text: displayText });
+        refEl.createSpan({ cls: 'conversum-ref-separator', text: ' — ' });
         const filesContainer = refEl.createDiv({ cls: 'conversum-files-inline' });
-        const fileUnits: HTMLElement[] = [];
         for (let i = 0; i < ref.files.length; i++) {
             const file = ref.files[i];
             const unit = filesContainer.createSpan({ cls: 'conversum-file-unit' });
@@ -415,11 +425,10 @@ export class ConcordanceView extends ItemView {
                     }
                 }
             });
-            unit.createSpan({ cls: 'conversum-file-count', text: ` (${file.occurrences})` });
+            unit.createSpan({ cls: 'conversum-file-count', text: ' (' + file.occurrences + ')' });
             if (i < ref.files.length - 1) {
                 unit.createSpan({ text: '; ' });
             }
-            fileUnits.push(unit);
         }
         return refEl;
     }
