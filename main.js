@@ -4593,7 +4593,7 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
       text: `v${this.plugin.manifest.version} \u2013 ${engineVersion}`,
       cls: "conversum-version-info"
     });
-    new import_obsidian2.Setting(containerEl).setName("Language Settings").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Language Options").setHeading();
     const languages = getAvailableLanguages();
     const nonAslLanguages = languages.filter((l) => l.code !== "ase");
     new import_obsidian2.Setting(containerEl).setName("Source language").setDesc("Language of the scripture references in your notes. Changing this will force a full reindex of all notes.").addDropdown((dropdown) => {
@@ -4638,7 +4638,7 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
         this.display();
       });
     });
-    new import_obsidian2.Setting(containerEl).setName("Index Settings").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Index Options").setHeading();
     new import_obsidian2.Setting(containerEl).setName("Auto-index").setDesc("Automatically update the index when files change.").addToggle((toggle) => {
       toggle.setValue(this.plugin.settings.autoIndex);
       toggle.onChange(async (value) => {
@@ -4656,7 +4656,8 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
         this.display();
       });
     });
-    new import_obsidian2.Setting(containerEl).setName("Excluded folders").setDesc("Additional folders to exclude from indexing (comma-separated). _templates, _attachments, and .obsidian are always excluded.").addText((text) => {
+    const configDir = this.plugin.app.vault.configDir;
+    new import_obsidian2.Setting(containerEl).setName("Excluded folders").setDesc(`Additional folders to exclude from indexing (comma-separated). _templates, _attachments, and ${configDir} are always excluded.`).addText((text) => {
       text.setPlaceholder("my_notes, drafts, archive");
       text.setValue(this.plugin.settings.excludedFolders.join(", "));
       text.onChange(async (value) => {
@@ -4721,17 +4722,24 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
       });
     }
     const footerEl = containerEl.createDiv({ cls: "conversum-settings-footer" });
-    footerEl.style.marginTop = "20px";
-    footerEl.style.paddingTop = "12px";
-    footerEl.style.borderTop = "1px solid var(--background-modifier-border)";
-    footerEl.style.fontSize = "0.75rem";
-    footerEl.style.color = "var(--text-muted)";
-    footerEl.style.textAlign = "center";
-    footerEl.innerHTML = `
-            My other Obsidian plugin: <strong>tra.VER:ture</strong>:
-            <a href="https://github.com/erykjj/traverture" target="_blank" rel="noopener noreferrer">GitHub repo</a>,
-            <a href="https://community.obsidian.md/plugins/traverture" target="_blank" rel="noopener noreferrer">Obsidian Community</a>
-        `;
+    footerEl.addClass("conversum-settings-footer");
+    const footerText = footerEl.createSpan();
+    footerText.appendChild(document.createTextNode("My other Obsidian plugin: "));
+    const strong = footerText.createEl("strong", { text: "tra.VER:ture" });
+    footerText.appendChild(document.createTextNode(": "));
+    const githubLink = footerText.createEl("a", {
+      text: "GitHub repo",
+      href: "https://github.com/erykjj/traverture"
+    });
+    githubLink.setAttribute("target", "_blank");
+    githubLink.setAttribute("rel", "noopener noreferrer");
+    footerText.appendChild(document.createTextNode(", "));
+    const obsidianLink = footerText.createEl("a", {
+      text: "Obsidian Community",
+      href: "https://community.obsidian.md/plugins/traverture"
+    });
+    obsidianLink.setAttribute("target", "_blank");
+    obsidianLink.setAttribute("rel", "noopener noreferrer");
   }
 };
 
@@ -4895,11 +4903,22 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
       const chapters = [];
       let bookTotalRefs = 0;
       let bookTotalFiles = /* @__PURE__ */ new Set();
-      for (const [chapter, refs] of chapterMap) {
+      const sortedChapters = Array.from(chapterMap.keys()).sort((a, b) => {
+        if (a === -1) return -1;
+        if (b === -1) return 1;
+        return a - b;
+      });
+      for (const chapter of sortedChapters) {
+        const refs = chapterMap.get(chapter);
         const referenceGroups = [];
         let chapterTotalRefs = 0;
         let chapterTotalFiles = /* @__PURE__ */ new Set();
-        for (const [key, entry, formatted] of refs) {
+        const sortedRefs = [...refs].sort((a, b) => {
+          const aStart = a[0].split("-")[0];
+          const bStart = b[0].split("-")[0];
+          return parseInt(aStart.substring(5, 8)) - parseInt(bStart.substring(5, 8));
+        });
+        for (const [key, entry, formatted] of sortedRefs) {
           let displayText;
           if (formatted) {
             displayText = formatted;
@@ -5109,13 +5128,12 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
     }
   }
   createReferenceElement(ref) {
-    const refEl = document.createElement("div");
+    const refEl = this.container.createDiv();
     refEl.className = ref.isWholeBook ? "conversum-reference whole-book" : "conversum-reference";
     const displayText = ref.formattedText || ref.referenceKey;
-    const refTextSpan = refEl.createSpan({ cls: "conversum-ref-text", text: displayText });
-    const separator = refEl.createSpan({ cls: "conversum-ref-separator", text: " \u2014 " });
+    refEl.createSpan({ cls: "conversum-ref-text", text: displayText });
+    refEl.createSpan({ cls: "conversum-ref-separator", text: " \u2014 " });
     const filesContainer = refEl.createDiv({ cls: "conversum-files-inline" });
-    const fileUnits = [];
     for (let i = 0; i < ref.files.length; i++) {
       const file = ref.files[i];
       const unit = filesContainer.createSpan({ cls: "conversum-file-unit" });
@@ -5137,11 +5155,10 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
           }
         }
       });
-      unit.createSpan({ cls: "conversum-file-count", text: ` (${file.occurrences})` });
+      unit.createSpan({ cls: "conversum-file-count", text: " (" + file.occurrences + ")" });
       if (i < ref.files.length - 1) {
         unit.createSpan({ text: "; " });
       }
-      fileUnits.push(unit);
     }
     return refEl;
   }
@@ -5379,6 +5396,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
   isFormattingBusy() {
     return this.indexer?.isFormattingBusy() || false;
   }
+  // ============================================================
+  // STARTUP FLOW
+  // ============================================================
   async handleStartup() {
     if (!this.indexer || !this.db) {
       return;
@@ -5482,6 +5502,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
     this.refreshConcordanceView();
     this.refreshSettings();
   }
+  // ============================================================
+  // SETTINGS
+  // ============================================================
   async loadSettings() {
     const savedData = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS);
@@ -5518,6 +5541,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
     };
     await this.saveData(dataToSave);
   }
+  // ============================================================
+  // INDEXER
+  // ============================================================
   initIndexer() {
     if (!this.db) return;
     this.indexer = new ScriptureIndexer(
@@ -5590,6 +5616,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
     this.refreshConcordanceView();
     this.refreshSettings();
   }
+  // ============================================================
+  // FILE WATCHER
+  // ============================================================
   startFileWatcher() {
     if (this.fileWatcherEnabled) return;
     this.fileWatcherEnabled = true;
@@ -5624,6 +5653,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       }
     }, 5e3);
   }
+  // ============================================================
+  // EVENTS
+  // ============================================================
   registerEvents() {
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
@@ -5897,6 +5929,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
     });
     menu.showAtPosition({ x: evt.clientX, y: evt.clientY - 70 });
   }
+  // ============================================================
+  // COMMANDS
+  // ============================================================
   addCommands() {
     this.addCommand({
       id: "find-related-notes",
@@ -5915,6 +5950,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       callback: () => void this.openConcordanceView()
     });
   }
+  // ============================================================
+  // VIEW MANAGEMENT
+  // ============================================================
   async openConcordanceView() {
     const { workspace } = this.app;
     let leaf = workspace.getLeavesOfType(VIEW_TYPE_CONVERSUM_CONCORDANCE)[0];
@@ -5961,11 +5999,17 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       }
     }
   }
+  // ============================================================
+  // EFFECTIVE SOURCE LANGUAGE
+  // ============================================================
   getEffectiveSourceLanguage(file) {
     if (!file || !this.db) return this.settings.sourceLanguage;
     const language = this.db.getFileLanguage(file.path);
     return language || this.settings.sourceLanguage;
   }
+  // ============================================================
+  // FIND REFERENCE AT CURSOR
+  // ============================================================
   findReferenceAtPosition(line, position, sourceLang) {
     if (!isEngineReady()) return null;
     const processedLine = this.transformForcedReferences(line);
@@ -6101,6 +6145,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
     }
     this.relatedPopout?.showWithEntries(startBcv, formatted, matchingEntries, x, y);
   }
+  // ============================================================
+  // EXPORT
+  // ============================================================
   async exportConcordance() {
     if (!this.indexer) {
       new import_obsidian4.Notice("Indexer not initialized");
