@@ -2801,7 +2801,7 @@ var IndexDatabase = class {
           );
           dbData = new Uint8Array(fileContent);
         }
-      } catch (e) {
+      } catch {
         console.log("con[VER]sum: No existing database file found, creating new one");
       }
       this.db = dbData ? new SQL.Database(dbData) : new SQL.Database();
@@ -3603,10 +3603,7 @@ var IndexDatabase = class {
           this.rollbackTransaction();
         }
       }
-      try {
-        this.db.run("VACUUM");
-      } catch {
-      }
+      this.db.run("VACUUM");
       await this.saveToDisk();
       this.db.close();
       this.db = null;
@@ -3830,7 +3827,6 @@ var ScriptureIndexer = class {
       this.plugin.refreshSettings();
       return;
     }
-    let successCount = 0;
     try {
       this.db.beginTransaction();
       for (const rangeKey of rangeKeys) {
@@ -3838,7 +3834,6 @@ var ScriptureIndexer = class {
         try {
           const data = this.db.getOccurrenceData(rangeKey);
           if (!data) {
-            successCount++;
             continue;
           }
           const ranges = [[
@@ -3852,9 +3847,7 @@ var ScriptureIndexer = class {
           );
           const formatted = decoded && decoded.length > 0 ? decoded[0] : `${data.startBcv}-${data.endBcv}`;
           this.db.updateFormatted(rangeKey, formatted);
-          successCount++;
         } catch {
-          successCount++;
         }
       }
       if (!this.formattingAbortRequested) {
@@ -4169,7 +4162,6 @@ var ScriptureIndexer = class {
         try {
           const formatted = this.db.getFormatted(rangeKey);
           if (!formatted) continue;
-          const files = this.db.getFilesWithCounts(rangeKey);
         } catch {
         }
       }
@@ -4348,6 +4340,11 @@ var RelatedNotesPopout = class {
     const otherFiles = allFiles.filter((f) => f.path !== currentFilePath);
     const popout = activeDocument.createElement("div");
     popout.className = "conversum-related-popout";
+    popout.style.position = "fixed";
+    popout.style.zIndex = "1000";
+    popout.style.maxWidth = "500px";
+    popout.style.minWidth = "200px";
+    popout.style.width = "auto";
     let left = x + 20;
     let top = y + 10;
     const popoutWidth = 500;
@@ -4469,6 +4466,11 @@ var RelatedNotesPopout = class {
     const otherFiles = allFiles.filter((f) => f.path !== currentFilePath);
     const popout = activeDocument.createElement("div");
     popout.className = "conversum-related-popout";
+    popout.style.position = "fixed";
+    popout.style.zIndex = "1000";
+    popout.style.maxWidth = "500px";
+    popout.style.minWidth = "200px";
+    popout.style.width = "auto";
     let left = x + 20;
     let top = y + 10;
     const popoutWidth = 500;
@@ -4730,6 +4732,100 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
     });
     obsidianLink.setAttribute("target", "_blank");
     obsidianLink.setAttribute("rel", "noopener noreferrer");
+  }
+  getSettingDefinitions() {
+    return [
+      {
+        name: "Source language",
+        description: "Language of the scripture references in your notes",
+        type: "dropdown",
+        options: getAvailableLanguages().filter((l) => l.code !== "ase").map((l) => ({
+          value: l.code,
+          display: `${l.vernacularName} (${l.code})`
+        })),
+        setting: this.plugin.settings.sourceLanguage,
+        onChange: async (value) => {
+          this.plugin.settings.sourceLanguage = value;
+          await this.plugin.saveSettings();
+          this.plugin.updateIndexerSettings();
+          await this.plugin.rebuildIndex();
+          this.display();
+          new import_obsidian2.Notice(`Source language updated to ${value}. Reindexing complete.`);
+        }
+      },
+      {
+        name: "Output language",
+        description: "Language for displaying book names and references",
+        type: "dropdown",
+        options: getAvailableLanguages().filter((l) => l.code !== "ase").map((l) => ({
+          value: l.code,
+          display: `${l.vernacularName} (${l.code})`
+        })),
+        setting: this.plugin.settings.outputLanguage,
+        onChange: async (value) => {
+          this.plugin.settings.outputLanguage = value;
+          await this.plugin.saveSettings();
+          this.plugin.updateIndexerSettings();
+          await this.plugin.reformatAllReferences();
+          this.display();
+          new import_obsidian2.Notice(`Output language updated to ${value}`);
+        }
+      },
+      {
+        name: "Reference format",
+        description: "How scripture references are displayed",
+        type: "dropdown",
+        options: [
+          { value: "full", display: "Full (1 Corinthians)" },
+          { value: "standard", display: "Standard (1 Cor.)" },
+          { value: "official", display: "Official (1Co)" }
+        ],
+        setting: this.plugin.settings.nameFormat,
+        onChange: async (value) => {
+          this.plugin.settings.nameFormat = value;
+          await this.plugin.saveSettings();
+          this.plugin.updateIndexerSettings();
+          await this.plugin.reformatAllReferences();
+          this.display();
+        }
+      },
+      {
+        name: "Auto-index",
+        description: "Automatically update the index when files change",
+        type: "toggle",
+        setting: this.plugin.settings.autoIndex,
+        onChange: async (value) => {
+          this.plugin.settings.autoIndex = value;
+          await this.plugin.saveSettings();
+          if (value) {
+            this.plugin.startFileWatcher();
+            const data = this.plugin.indexer?.getData();
+            if (!data || Object.keys(data.references).length === 0) {
+              await this.plugin.rebuildIndex();
+            }
+          } else {
+            this.plugin.stopFileWatcher();
+          }
+          this.display();
+        }
+      },
+      {
+        name: "Excluded folders",
+        description: "Folders to exclude from indexing",
+        type: "text",
+        setting: this.plugin.settings.excludedFolders.join(", "),
+        onChange: async (value) => {
+          const folders = value.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+          this.plugin.settings.excludedFolders = folders;
+          await this.plugin.saveSettings();
+          this.plugin.updateIndexerSettings();
+          if (this.plugin.settings.autoIndex) {
+            await this.plugin.rebuildIndex();
+          }
+          this.display();
+        }
+      }
+    ];
   }
 };
 
@@ -5010,7 +5106,11 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
         this.toggleBook(book.bookId);
       });
       const chaptersContainer = bookEl.createDiv({ cls: "conversum-chapters" });
-      chaptersContainer.style.display = book.expanded ? "block" : "none";
+      if (book.expanded) {
+        chaptersContainer.removeClass("conversum-hidden");
+      } else {
+        chaptersContainer.addClass("conversum-hidden");
+      }
       chaptersContainer.dataset.bookId = String(book.bookId);
       if (book.expanded) {
         this.buildChaptersForBook(chaptersContainer, book.bookId);
@@ -5041,7 +5141,11 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
         this.toggleChapter(bookId, chapter.chapter);
       });
       const refsContainer = chapterEl.createDiv({ cls: "conversum-references" });
-      refsContainer.style.display = chapter.expanded ? "block" : "none";
+      if (chapter.expanded) {
+        refsContainer.removeClass("conversum-hidden");
+      } else {
+        refsContainer.addClass("conversum-hidden");
+      }
       refsContainer.dataset.chapterKey = chapterKey;
       if (chapter.expanded) {
         this.buildReferencesForChapter(refsContainer, chapter.references);
@@ -5056,7 +5160,7 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
       this.expandedBooks.delete(bookId);
       const chaptersContainer = bookEl.querySelector(".conversum-chapters");
       if (chaptersContainer) {
-        chaptersContainer.style.display = "none";
+        chaptersContainer.addClass("conversum-hidden");
       }
       const toggle = bookEl.querySelector(".conversum-toggle");
       if (toggle) toggle.textContent = "\u25B6";
@@ -5064,7 +5168,7 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
       this.expandedBooks.add(bookId);
       const chaptersContainer = bookEl.querySelector(".conversum-chapters");
       if (chaptersContainer) {
-        chaptersContainer.style.display = "block";
+        chaptersContainer.removeClass("conversum-hidden");
         if (!chaptersContainer.hasChildNodes() || chaptersContainer.children.length === 0) {
           this.buildChaptersForBook(chaptersContainer, bookId);
         }
@@ -5082,7 +5186,7 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
       this.expandedChapters.delete(chapterKey);
       const refsContainer = chapterEl.querySelector(".conversum-references");
       if (refsContainer) {
-        refsContainer.style.display = "none";
+        refsContainer.addClass("conversum-hidden");
       }
       const toggle = chapterEl.querySelector(".conversum-toggle");
       if (toggle) toggle.textContent = "\u25B6";
@@ -5090,7 +5194,7 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
       this.expandedChapters.add(chapterKey);
       const refsContainer = chapterEl.querySelector(".conversum-references");
       if (refsContainer) {
-        refsContainer.style.display = "block";
+        refsContainer.removeClass("conversum-hidden");
         if (!refsContainer.hasChildNodes() || refsContainer.children.length === 0) {
           const book = this.bookGroups.find((b) => b.bookId === bookId);
           if (book) {
@@ -5160,7 +5264,7 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
       for (const bookEl of allBooks) {
         const chaptersContainer = bookEl.querySelector(".conversum-chapters");
         if (chaptersContainer) {
-          chaptersContainer.style.display = "none";
+          chaptersContainer.addClass("conversum-hidden");
         }
         const toggle = bookEl.querySelector(".conversum-toggle");
         if (toggle) toggle.textContent = "\u25B6";
@@ -5169,7 +5273,7 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
       for (const chapterEl of allChapters) {
         const refsContainer = chapterEl.querySelector(".conversum-references");
         if (refsContainer) {
-          refsContainer.style.display = "none";
+          refsContainer.addClass("conversum-hidden");
         }
         const toggle = chapterEl.querySelector(".conversum-toggle");
         if (toggle) toggle.textContent = "\u25B6";
@@ -5186,11 +5290,15 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
       for (const book of this.bookGroups) {
         const bookEl = this.resultsContainer.querySelector(`.conversum-book[data-book-id="${book.bookId}"]`);
         if (!bookEl) continue;
-        bookEl.style.display = "block";
+        bookEl.removeClass("conversum-hidden");
         const chaptersContainer = bookEl.querySelector(".conversum-chapters");
         if (chaptersContainer) {
           const shouldShow = this.expandedBooks.has(book.bookId);
-          chaptersContainer.style.display = shouldShow ? "block" : "none";
+          if (shouldShow) {
+            chaptersContainer.removeClass("conversum-hidden");
+          } else {
+            chaptersContainer.addClass("conversum-hidden");
+          }
           const toggle = bookEl.querySelector(".conversum-toggle");
           if (toggle) toggle.textContent = shouldShow ? "\u25BC" : "\u25B6";
           for (const chapter of book.chapters) {
@@ -5198,12 +5306,16 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
             const chapterEl = chaptersContainer.querySelector(`.conversum-chapter[data-chapter-key="${chapterKey}"]`);
             if (!chapterEl) continue;
             const isExpanded = this.expandedChapters.has(chapterKey);
-            chapterEl.style.display = "block";
+            chapterEl.removeClass("conversum-hidden");
             const refsContainer = chapterEl.querySelector(".conversum-references");
             if (refsContainer) {
-              refsContainer.style.display = isExpanded ? "block" : "none";
-              if (isExpanded && (!refsContainer.hasChildNodes() || refsContainer.children.length === 0)) {
-                this.buildReferencesForChapter(refsContainer, chapter.references);
+              if (isExpanded) {
+                refsContainer.removeClass("conversum-hidden");
+                if (!refsContainer.hasChildNodes() || refsContainer.children.length === 0) {
+                  this.buildReferencesForChapter(refsContainer, chapter.references);
+                }
+              } else {
+                refsContainer.addClass("conversum-hidden");
               }
             }
             const toggle2 = chapterEl.querySelector(".conversum-toggle");
@@ -5246,10 +5358,10 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
           bookHasMatch = true;
           this.expandedChapters.add(chapterKey);
           if (chapterEl) {
-            chapterEl.style.display = "block";
+            chapterEl.removeClass("conversum-hidden");
             const refsContainer = chapterEl.querySelector(".conversum-references");
             if (refsContainer) {
-              refsContainer.style.display = "block";
+              refsContainer.removeClass("conversum-hidden");
               refsContainer.innerHTML = "";
               for (const ref of matchingRefs) {
                 const refEl = this.createReferenceElement(ref);
@@ -5262,24 +5374,25 @@ var ConcordanceView = class extends import_obsidian3.ItemView {
         } else {
           this.expandedChapters.delete(chapterKey);
           if (chapterEl) {
-            chapterEl.style.display = "none";
+            chapterEl.addClass("conversum-hidden");
             const toggle = chapterEl.querySelector(".conversum-toggle");
             if (toggle) toggle.textContent = "\u25B6";
           }
         }
       }
-      bookEl.style.display = bookHasMatch ? "block" : "none";
       if (bookHasMatch) {
+        bookEl.removeClass("conversum-hidden");
         this.expandedBooks.add(book.bookId);
         if (bookChaptersContainer) {
-          bookChaptersContainer.style.display = "block";
+          bookChaptersContainer.removeClass("conversum-hidden");
         }
         const toggle = bookEl.querySelector(".conversum-toggle");
         if (toggle) toggle.textContent = "\u25BC";
       } else {
+        bookEl.addClass("conversum-hidden");
         this.expandedBooks.delete(book.bookId);
         if (bookChaptersContainer) {
-          bookChaptersContainer.style.display = "none";
+          bookChaptersContainer.addClass("conversum-hidden");
         }
         const toggle = bookEl.querySelector(".conversum-toggle");
         if (toggle) toggle.textContent = "\u25B6";
@@ -5356,7 +5469,7 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
     this.isStartupComplete = true;
     console.log("con[VER]sum: Plugin loaded");
   }
-  async onunload() {
+  onunload() {
     this.stopFileWatcher();
     if (this.rebuildTimeout) {
       window.clearTimeout(this.rebuildTimeout);
@@ -5368,8 +5481,9 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
     }
     clearEnginePool();
     if (this.db) {
-      await this.db.close();
-      this.db = null;
+      void this.db.close().then(() => {
+        this.db = null;
+      });
     }
     console.log("con[VER]sum: Plugin unloaded");
   }
@@ -6156,7 +6270,7 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       const file = await this.app.vault.create(filePath, content);
       await this.app.workspace.openLinkText(file.path, "");
       new import_obsidian4.Notice(`Concordance exported: ${fileName}`);
-    } catch (e) {
+    } catch {
       new import_obsidian4.Notice("Export failed. See console for details.");
     }
   }
