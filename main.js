@@ -4340,11 +4340,13 @@ var RelatedNotesPopout = class {
     const otherFiles = allFiles.filter((f) => f.path !== currentFilePath);
     const popout = activeDocument.createElement("div");
     popout.className = "conversum-related-popout";
-    popout.style.position = "fixed";
-    popout.style.zIndex = "1000";
-    popout.style.maxWidth = "500px";
-    popout.style.minWidth = "200px";
-    popout.style.width = "auto";
+    popout.setCssStyles?.({
+      position: "fixed",
+      zIndex: "1000",
+      maxWidth: "500px",
+      minWidth: "200px",
+      width: "auto"
+    });
     let left = x + 20;
     let top = y + 10;
     const popoutWidth = 500;
@@ -4466,11 +4468,13 @@ var RelatedNotesPopout = class {
     const otherFiles = allFiles.filter((f) => f.path !== currentFilePath);
     const popout = activeDocument.createElement("div");
     popout.className = "conversum-related-popout";
-    popout.style.position = "fixed";
-    popout.style.zIndex = "1000";
-    popout.style.maxWidth = "500px";
-    popout.style.minWidth = "200px";
-    popout.style.width = "auto";
+    popout.setCssStyles?.({
+      position: "fixed",
+      zIndex: "1000",
+      maxWidth: "500px",
+      minWidth: "200px",
+      width: "auto"
+    });
     let left = x + 20;
     let top = y + 10;
     const popoutWidth = 500;
@@ -4585,7 +4589,7 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
       text: `v${this.plugin.manifest.version} \u2013 ${engineVersion}`,
       cls: "conversum-version-info"
     });
-    new import_obsidian2.Setting(containerEl).setName("Language Options").setHeading();
+    new import_obsidian2.Setting(containerEl.createEl("h3", { text: "Language Options" }));
     const languages = getAvailableLanguages();
     const nonAslLanguages = languages.filter((l) => l.code !== "ase");
     new import_obsidian2.Setting(containerEl).setName("Source language").setDesc("Language of the scripture references in your notes. Changing this will force a full reindex of all notes.").addDropdown((dropdown) => {
@@ -4630,7 +4634,7 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
         this.display();
       });
     });
-    new import_obsidian2.Setting(containerEl).setName("Index Options").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Index").setHeading();
     new import_obsidian2.Setting(containerEl).setName("Auto-index").setDesc("Automatically update the index when files change.").addToggle((toggle) => {
       toggle.setValue(this.plugin.settings.autoIndex);
       toggle.onChange(async (value) => {
