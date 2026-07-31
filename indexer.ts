@@ -340,7 +340,6 @@ export class ScriptureIndexer {
             await this.plugin.saveSettings();
         } catch {
         }
-        const startTime = Date.now();
         try {
             const files = this.vault.getMarkdownFiles();
             const filteredFiles = files.filter((f: TFile) => !this.isExcluded(f.path));
