@@ -750,7 +750,7 @@ export default class ConversumPlugin extends Plugin {
         if (settingTabs) {
             for (const child of settingTabs) {
                 if (child.textContent?.includes('con[VER]sum')) {
-                    const tab = child as any;
+                    const tab = child;
                     if (tab && typeof tab.display === 'function') {
                         tab.display();
                     }
