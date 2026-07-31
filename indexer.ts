@@ -450,8 +450,7 @@ export class ScriptureIndexer {
                 await this.plugin.saveSettings();
             } catch {
             }
-            const totalTime = Date.now() - startTime;
-            // console.log(`con[VER]sum: Index rebuild complete: ${Object.keys(newData.references).length} unique refs in ${(totalTime / 1000).toFixed(2)}s`); // DEBUG
+            // console.log(`con[VER]sum: Index rebuild complete: ${Object.keys(newData.references).length} unique refs`); // DEBUG
             this.progress.status = 'complete';
             this.progress.currentFile = undefined;
             onProgress?.(this.progress);
