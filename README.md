@@ -1,4 +1,4 @@
-> **Beta Notice:** This is a *beta* release. I would greatly appreciate if you could [report issues and/or suggestions](https://github.com/erykjj/conversum/issues).
+> **Notice:** I would greatly appreciate if you could [report issues and/or suggestions](https://github.com/erykjj/conversum/issues).
 
 [![Static Badge](https://img.shields.io/badge/releases-orange?logo=rss&logoColor=orange&color=black)](https://github.com/erykjj/conversum/releases.atom) [![GitHub Downloads](https://img.shields.io/github/downloads/erykjj/conversum/total)](https://github.com/erykjj/conversum/releases/latest)
 
