@@ -617,7 +617,7 @@ export default class ConversumPlugin extends Plugin {
             }
             if (textToParse) {
                 const processedText = this.transformForcedReferences(textToParse);
-                const parsedResult = parseReferences(processedText, this.settings.sourceLanguage, this.settings.outputLanguage, this.settings.nameFormat);
+                const parsedResult = parseReferences(processedText, sourceLang, this.settings.outputLanguage, this.settings.nameFormat);
                 if (parsedResult && parsedResult.length > 0) {
                     const refText = parsedResult[0][0] as string;
                     const contextText = element.textContent || '';
