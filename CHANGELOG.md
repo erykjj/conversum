@@ -11,6 +11,12 @@
 ### Removed
 
 ____
+## 1.1.0 - 2026-08-01
+### Fixed
+
+- Fixed Settings panel in dark mode
+- Fixed source language override
+
 ## 1.0.1 - 2026-07-31
 
 ### Changed
@@ -32,6 +38,7 @@ ____
 - Initial *beta* release
 
 ____
+[1.1.0]:https://github.com/erykjj/conversum/releases/tag/1.1.0
 [1.0.1]:https://github.com/erykjj/conversum/releases/tag/1.0.1
 [1.0.0]:https://github.com/erykjj/conversum/releases/tag/1.0.0
 [0.1.5]:https://github.com/erykjj/conversum/releases/tag/0.1.5
