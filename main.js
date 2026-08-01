@@ -4578,96 +4578,7 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
       text: `v${this.plugin.manifest.version} \u2013 ${engineVersion}`,
       cls: "conversum-version-info"
     });
-    new import_obsidian2.Setting(containerEl).setName("Language").setHeading();
-    const languages = getAvailableLanguages();
-    const nonAslLanguages = languages.filter((l) => l.code !== "ase");
-    new import_obsidian2.Setting(containerEl).setName("Source language").setDesc("Language of the scripture references in your notes. Changing this will force a full reindex of all notes.").addDropdown((dropdown) => {
-      for (const lang of nonAslLanguages) {
-        dropdown.addOption(lang.code, `${lang.vernacularName} (${lang.code})`);
-      }
-      dropdown.setValue(this.plugin.settings.sourceLanguage);
-      dropdown.onChange(async (value) => {
-        this.plugin.settings.sourceLanguage = value;
-        await this.plugin.saveSettings();
-        this.plugin.updateIndexerSettings();
-        await this.plugin.rebuildIndex();
-        this.display();
-        new import_obsidian2.Notice(`Source language updated to ${value}. Reindexing complete.`);
-      });
-    });
-    new import_obsidian2.Setting(containerEl).setName("Output language").setDesc("Language for displaying book names and references").addDropdown((dropdown) => {
-      const filteredLanguages = languages.filter((l) => l.code !== "ase");
-      for (const lang of filteredLanguages) {
-        dropdown.addOption(lang.code, `${lang.vernacularName} (${lang.code})`);
-      }
-      dropdown.setValue(this.plugin.settings.outputLanguage);
-      dropdown.onChange(async (value) => {
-        this.plugin.settings.outputLanguage = value;
-        await this.plugin.saveSettings();
-        this.plugin.updateIndexerSettings();
-        await this.plugin.reformatAllReferences();
-        this.display();
-        new import_obsidian2.Notice(`Output language updated to ${value}`);
-      });
-    });
-    new import_obsidian2.Setting(containerEl).setName("Reference format").setDesc("How scripture references are displayed").addDropdown((dropdown) => {
-      dropdown.addOption("full", "Full (1 Corinthians)");
-      dropdown.addOption("standard", "Standard (1 Cor.)");
-      dropdown.addOption("official", "Official (1Co)");
-      dropdown.setValue(this.plugin.settings.nameFormat);
-      dropdown.onChange(async (value) => {
-        this.plugin.settings.nameFormat = value;
-        await this.plugin.saveSettings();
-        this.plugin.updateIndexerSettings();
-        await this.plugin.reformatAllReferences();
-        this.display();
-      });
-    });
-    new import_obsidian2.Setting(containerEl).setName("Index").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("Auto-index").setDesc("Automatically update the index when files change.").addToggle((toggle) => {
-      toggle.setValue(this.plugin.settings.autoIndex);
-      toggle.onChange(async (value) => {
-        this.plugin.settings.autoIndex = value;
-        await this.plugin.saveSettings();
-        if (value) {
-          this.plugin.startFileWatcher();
-          const data2 = this.plugin.indexer?.getData();
-          if (!data2 || Object.keys(data2.references).length === 0) {
-            await this.plugin.rebuildIndex();
-          }
-        } else {
-          this.plugin.stopFileWatcher();
-        }
-        this.display();
-      });
-    });
-    const configDir = this.plugin.app.vault.configDir;
-    new import_obsidian2.Setting(containerEl).setName("Excluded folders").setDesc(`Additional folders to exclude from indexing (comma-separated). _templates, _attachments, and ${configDir} are always excluded.`).addText((text) => {
-      text.setPlaceholder("my_notes, drafts, archive");
-      text.setValue(this.plugin.settings.excludedFolders.join(", "));
-      text.onChange(async (value) => {
-        const folders = value.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
-        this.plugin.settings.excludedFolders = folders;
-        await this.plugin.saveSettings();
-        this.plugin.updateIndexerSettings();
-        if (this.plugin.settings.autoIndex) {
-          await this.plugin.rebuildIndex();
-        }
-        this.display();
-      });
-    });
-    new import_obsidian2.Setting(containerEl).setName("Rebuild index").setDesc("Force a full rebuild of the concordance index").addButton((button) => {
-      button.setButtonText("Rebuild");
-      button.setCta();
-      button.onClick(async () => {
-        if (this.plugin.indexer?.isBusy()) {
-          new import_obsidian2.Notice("Indexing already in progress");
-          return;
-        }
-        await this.plugin.rebuildIndex();
-        this.display();
-      });
-    });
+    this.renderSettings(containerEl);
     const statusEl = containerEl.createDiv({ cls: "conversum-status" });
     const data = this.plugin.indexer?.getData();
     const lastUpdated = data?.lastUpdated;
@@ -4707,7 +4618,6 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
       });
     }
     const footerEl = containerEl.createDiv({ cls: "conversum-settings-footer" });
-    footerEl.addClass("conversum-settings-footer");
     const footerText = footerEl.createSpan();
     footerText.appendChild(document.createTextNode("My other Obsidian plugin: "));
     footerText.createEl("strong", { text: "tra.VER:ture" });
@@ -4726,99 +4636,100 @@ var ConversumSettingTab = class extends import_obsidian2.PluginSettingTab {
     obsidianLink.setAttribute("target", "_blank");
     obsidianLink.setAttribute("rel", "noopener noreferrer");
   }
-  getSettingDefinitions() {
-    return [
-      {
-        name: "Source language",
-        description: "Language of the scripture references in your notes",
-        type: "dropdown",
-        options: getAvailableLanguages().filter((l) => l.code !== "ase").map((l) => ({
-          value: l.code,
-          display: `${l.vernacularName} (${l.code})`
-        })),
-        setting: this.plugin.settings.sourceLanguage,
-        onChange: async (value) => {
-          this.plugin.settings.sourceLanguage = value;
-          await this.plugin.saveSettings();
-          this.plugin.updateIndexerSettings();
-          await this.plugin.rebuildIndex();
-          this.display();
-          new import_obsidian2.Notice(`Source language updated to ${value}. Reindexing complete.`);
-        }
-      },
-      {
-        name: "Output language",
-        description: "Language for displaying book names and references",
-        type: "dropdown",
-        options: getAvailableLanguages().filter((l) => l.code !== "ase").map((l) => ({
-          value: l.code,
-          display: `${l.vernacularName} (${l.code})`
-        })),
-        setting: this.plugin.settings.outputLanguage,
-        onChange: async (value) => {
-          this.plugin.settings.outputLanguage = value;
-          await this.plugin.saveSettings();
-          this.plugin.updateIndexerSettings();
-          await this.plugin.reformatAllReferences();
-          this.display();
-          new import_obsidian2.Notice(`Output language updated to ${value}`);
-        }
-      },
-      {
-        name: "Reference format",
-        description: "How scripture references are displayed",
-        type: "dropdown",
-        options: [
-          { value: "full", display: "Full (1 Corinthians)" },
-          { value: "standard", display: "Standard (1 Cor.)" },
-          { value: "official", display: "Official (1Co)" }
-        ],
-        setting: this.plugin.settings.nameFormat,
-        onChange: async (value) => {
-          this.plugin.settings.nameFormat = value;
-          await this.plugin.saveSettings();
-          this.plugin.updateIndexerSettings();
-          await this.plugin.reformatAllReferences();
-          this.display();
-        }
-      },
-      {
-        name: "Auto-index",
-        description: "Automatically update the index when files change",
-        type: "toggle",
-        setting: this.plugin.settings.autoIndex,
-        onChange: async (value) => {
-          this.plugin.settings.autoIndex = value;
-          await this.plugin.saveSettings();
-          if (value) {
-            this.plugin.startFileWatcher();
-            const data = this.plugin.indexer?.getData();
-            if (!data || Object.keys(data.references).length === 0) {
-              await this.plugin.rebuildIndex();
-            }
-          } else {
-            this.plugin.stopFileWatcher();
-          }
-          this.display();
-        }
-      },
-      {
-        name: "Excluded folders",
-        description: "Folders to exclude from indexing",
-        type: "text",
-        setting: this.plugin.settings.excludedFolders.join(", "),
-        onChange: async (value) => {
-          const folders = value.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
-          this.plugin.settings.excludedFolders = folders;
-          await this.plugin.saveSettings();
-          this.plugin.updateIndexerSettings();
-          if (this.plugin.settings.autoIndex) {
+  renderSettings(containerEl) {
+    const languages = getAvailableLanguages();
+    const nonAslLanguages = languages.filter((l) => l.code !== "ase");
+    const langOptions = nonAslLanguages.map((l) => ({
+      value: l.code,
+      display: `${l.vernacularName} (${l.code})`
+    }));
+    new import_obsidian2.Setting(containerEl).setName("Language").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Source language").setDesc("Language of the scripture references in your notes. Changing this will force a full reindex.").addDropdown((dropdown) => {
+      for (const opt of langOptions) {
+        dropdown.addOption(opt.value, opt.display);
+      }
+      dropdown.setValue(this.plugin.settings.sourceLanguage);
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.sourceLanguage = value;
+        await this.plugin.saveSettings();
+        this.plugin.updateIndexerSettings();
+        await this.plugin.rebuildIndex();
+        this.display();
+        new import_obsidian2.Notice(`Source language updated to ${value}. Reindexing complete.`);
+      });
+    });
+    new import_obsidian2.Setting(containerEl).setName("Output language").setDesc("Language for displaying book names and references").addDropdown((dropdown) => {
+      for (const opt of langOptions) {
+        dropdown.addOption(opt.value, opt.display);
+      }
+      dropdown.setValue(this.plugin.settings.outputLanguage);
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.outputLanguage = value;
+        await this.plugin.saveSettings();
+        this.plugin.updateIndexerSettings();
+        await this.plugin.reformatAllReferences();
+        this.display();
+        new import_obsidian2.Notice(`Output language updated to ${value}`);
+      });
+    });
+    new import_obsidian2.Setting(containerEl).setName("Reference format").setDesc("How scripture references are displayed").addDropdown((dropdown) => {
+      dropdown.addOption("full", "Full (1 Corinthians)");
+      dropdown.addOption("standard", "Standard (1 Cor.)");
+      dropdown.addOption("official", "Official (1Co)");
+      dropdown.setValue(this.plugin.settings.nameFormat);
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.nameFormat = value;
+        await this.plugin.saveSettings();
+        this.plugin.updateIndexerSettings();
+        await this.plugin.reformatAllReferences();
+        this.display();
+      });
+    });
+    new import_obsidian2.Setting(containerEl).setName("Index").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Auto-index").setDesc("Automatically update the index when files change").addToggle((toggle) => {
+      toggle.setValue(this.plugin.settings.autoIndex);
+      toggle.onChange(async (value) => {
+        this.plugin.settings.autoIndex = value;
+        await this.plugin.saveSettings();
+        if (value) {
+          this.plugin.startFileWatcher();
+          const data = this.plugin.indexer?.getData();
+          if (!data || Object.keys(data.references).length === 0) {
             await this.plugin.rebuildIndex();
           }
-          this.display();
+        } else {
+          this.plugin.stopFileWatcher();
         }
-      }
-    ];
+        this.display();
+      });
+    });
+    const configDir = this.plugin.app.vault.configDir;
+    new import_obsidian2.Setting(containerEl).setName("Excluded folders").setDesc(`Additional folders to exclude from indexing (comma-separated). _templates, _attachments, and ${configDir} are always excluded.`).addText((text) => {
+      text.setPlaceholder("my_notes, drafts, archive");
+      text.setValue(this.plugin.settings.excludedFolders.join(", "));
+      text.onChange(async (value) => {
+        const folders = value.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+        this.plugin.settings.excludedFolders = folders;
+        await this.plugin.saveSettings();
+        this.plugin.updateIndexerSettings();
+        if (this.plugin.settings.autoIndex) {
+          await this.plugin.rebuildIndex();
+        }
+        this.display();
+      });
+    });
+    new import_obsidian2.Setting(containerEl).setName("Rebuild index").setDesc("Force a full rebuild of the concordance index").addButton((button) => {
+      button.setButtonText("Rebuild");
+      button.setCta();
+      button.onClick(async () => {
+        if (this.plugin.indexer?.isBusy()) {
+          new import_obsidian2.Notice("Indexing already in progress");
+          return;
+        }
+        await this.plugin.rebuildIndex();
+        this.display();
+      });
+    });
   }
 };
 
@@ -5944,7 +5855,7 @@ var ConversumPlugin = class extends import_obsidian4.Plugin {
       }
       if (textToParse) {
         const processedText = this.transformForcedReferences(textToParse);
-        const parsedResult = parseReferences(processedText, this.settings.sourceLanguage, this.settings.outputLanguage, this.settings.nameFormat);
+        const parsedResult = parseReferences(processedText, sourceLang, this.settings.outputLanguage, this.settings.nameFormat);
         if (parsedResult && parsedResult.length > 0) {
           const refText = parsedResult[0][0];
           const contextText = element.textContent || "";
