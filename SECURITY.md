@@ -2,7 +2,7 @@
 
 ## Security and Privacy
 
-If you are concerned about the "Scorecard" review or the "Caution" warning on the [Obsidian Community plugins page](https://community.obsidian.md/plugins/conversum), see [SECURITY](https://github.com/erykjj/conversum?tab=security-ov-file).
+If you are concerned about the "Scorecard" review or the "Caution" warning on the [Obsidian Community plugins page](https://community.obsidian.md/plugins/conversum), here is some information to ease your mind.
 
 ---
 
