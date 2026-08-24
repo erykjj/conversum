@@ -6,14 +6,18 @@
 
 ### Changed
 
-- Updated engine to v3
-  - under-the-hood optimizations
-
 ### Fixed
 
 ### Removed
 
 ____
+## 1.2.0 - 2026-08-24
+### Changed
+
+- Updated engine to v3
+  - under-the-hood optimizations
+- Added TypeScript types to reduce unsafe warnings
+
 ## 1.1.0 - 2026-08-01
 ### Fixed
 
@@ -41,6 +45,7 @@ ____
 - Initial *beta* release
 
 ____
+[1.2.0]:https://github.com/erykjj/conversum/releases/tag/1.2.0
 [1.1.0]:https://github.com/erykjj/conversum/releases/tag/1.1.0
 [1.0.1]:https://github.com/erykjj/conversum/releases/tag/1.0.1
 [1.0.0]:https://github.com/erykjj/conversum/releases/tag/1.0.0
