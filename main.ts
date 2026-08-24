@@ -1,13 +1,17 @@
 // main.ts
 
-import { Plugin, Notice, Menu, TFile, TAbstractFile, Editor, EditorPosition, MarkdownView } from 'obsidian';
+import { Plugin, Notice, Menu, TFile, TAbstractFile, Editor, EditorPosition, MarkdownView, MenuItem } from 'obsidian';
 import { IndexDatabase } from './database';
 import { initEngine, isEngineReady, getAvailableLanguages, parseReferences, getBookName, decodeScriptures, prewarmEngines, clearEnginePool } from './engine-wrapper';
 import { ScriptureIndexer } from './indexer';
 import { RelatedNotesPopout } from './related';
 import { ConversumSettingTab } from './settings';
 import { ConcordanceView } from './sidebar';
-import { ConversumSettings, DEFAULT_SETTINGS, VIEW_TYPE_CONVERSUM_CONCORDANCE, IndexProgress, ReferenceIndexEntry } from './types';
+import { ConversumSettings, DEFAULT_SETTINGS, VIEW_TYPE_CONVERSUM_CONCORDANCE, IndexProgress, ReferenceIndexEntry, ParsedReference, NameFormat, ConversumData } from './types';
+
+function getSubmenu(item: MenuItem): Menu {
+    return (item as unknown as { setSubmenu(): Menu }).setSubmenu();
+}
 
 export default class ConversumPlugin extends Plugin {
     settings!: ConversumSettings;
@@ -28,7 +32,6 @@ export default class ConversumPlugin extends Plugin {
 
         try {
             await initEngine();
-            // console.log('con[VER]sum: Engine initialized'); // DEBUG
         } catch (e) {
             console.error('con[VER]sum: Failed to initialize engine:', e);
             new Notice('con[VER]sum: Failed to initialize engine.');
@@ -57,7 +60,6 @@ export default class ConversumPlugin extends Plugin {
             this.startFileWatcher();
         }
         this.isStartupComplete = true;
-        // console.log('con[VER]sum: Plugin loaded'); // DEBUG
     }
 
     onunload(): void {
@@ -76,12 +78,11 @@ export default class ConversumPlugin extends Plugin {
                 this.db = null;
             });
         }
-        // console.log('con[VER]sum: Plugin unloaded'); // DEBUG
     }
 
     private transformForcedReferences(text: string): string {
         if (!text.includes('{{')) return text;
-        return text.replace(/\{\{(.+?)\}\}/g, (_match, inner) => {
+        return text.replace(/\{\{(.+?)\}\}/g, (_match, inner: string) => {
             const cleaned = inner.replace(/\*\*/g, '').replace(/\*/g, '');
             return '⟪⟪' + cleaned + '⟫⟫';
         });
@@ -122,7 +123,6 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (hasValidData && this.settings.autoIndex) {
-            // console.log(`con[VER]sum: Loaded index with ${Object.keys(data.references).length} references from SQLite`); // DEBUG
             this.app.workspace.onLayoutReady(async () => {
                 await this.syncIndexOnStartup();
             });
@@ -136,7 +136,6 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (!hasValidData && this.settings.autoIndex) {
-            // console.log('con[VER]sum: No index data found, rebuilding...'); // DEBUG
             this.app.workspace.onLayoutReady(async () => {
                 await this.rebuildIndex();
             });
@@ -144,7 +143,6 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (!hasValidData && !this.settings.autoIndex) {
-            // console.log('con[VER]sum: No index data found and auto-index is disabled. Waiting for user action.'); // DEBUG
             this.refreshConcordanceView();
             this.refreshSettings();
             return;
@@ -153,15 +151,12 @@ export default class ConversumPlugin extends Plugin {
 
     private async syncIndexOnStartup(): Promise<void> {
         if (!this.indexer || !this.db) {
-            // console.log('con[VER]sum: Indexer or database not initialized, skipping sync'); // DEBUG
             return;
         }
 
-        // console.log('con[VER]sum: Syncing index on startup...'); // DEBUG
         const allFiles = this.app.vault.getMarkdownFiles();
         const data = this.db.getData();
         if (!data || Object.keys(data.fileCache).length === 0) {
-            // console.log('con[VER]sum: No existing index data, rebuilding...'); // DEBUG
             await this.rebuildIndex();
             return;
         }
@@ -181,39 +176,26 @@ export default class ConversumPlugin extends Plugin {
         }
 
         if (filesToIndex.length > 0) {
-            // console.log(`con[VER]sum: Indexing ${filesToIndex.length} new/changed files...`); // DEBUG
-            // let indexedCount = 0; // DEBUG
             for (const file of filesToIndex) {
                 try {
                     await this.indexer.updateFile(file, true);
-                    // indexedCount++; // DEBUG
                 } catch {
+                    // Skip failed file update
                 }
             }
-            // console.log(`con[VER]sum: Indexed ${indexedCount} files`); // DEBUG
         }
 
-        // console.log('con[VER]sum: Checking for deleted files...'); // DEBUG
         const freshData = this.db.getData();
         const freshFileCache = freshData.fileCache || {};
-        let removedCount = 0;
         for (const cachedPath of Object.keys(freshFileCache)) {
             if (!vaultPaths.has(cachedPath)) {
                 await this.indexer.removeFile(cachedPath);
-                removedCount++;
             }
-        }
-
-        if (removedCount > 0) {
-            // console.log(`con[VER]sum: Removed ${removedCount} deleted files from index`); // DEBUG
         }
 
         const unformattedCount = this.db.getUnformattedCount();
         if (unformattedCount > 0) {
-            // console.log(`con[VER]sum: ${unformattedCount} references need formatting, starting background process...`); // DEBUG
             this.indexer.startBackgroundFormatting();
-        } else {
-            // console.log('con[VER]sum: All references formatted'); // DEBUG
         }
 
         this.refreshConcordanceView();
@@ -225,7 +207,7 @@ export default class ConversumPlugin extends Plugin {
     // ============================================================
 
     async loadSettings(): Promise<void> {
-        const savedData = await this.loadData();
+        const savedData = await this.loadData() as Partial<ConversumSettings> | null;
         this.settings = Object.assign({}, DEFAULT_SETTINGS);
         if (savedData) {
             if (typeof savedData.sourceLanguage === 'string') {
@@ -244,7 +226,7 @@ export default class ConversumPlugin extends Plugin {
                 this.settings.excludedFolders = savedData.excludedFolders;
             }
             if (typeof savedData.rebuildStatus === 'string') {
-                this.settings.rebuildStatus = savedData.rebuildStatus;
+                this.settings.rebuildStatus = savedData.rebuildStatus as ConversumSettings['rebuildStatus'];
             }
         } else {
             this.settings.autoIndex = false;
@@ -383,15 +365,15 @@ export default class ConversumPlugin extends Plugin {
             window.clearTimeout(this.rebuildTimeout);
         }
 
-        this.rebuildTimeout = window.setTimeout(async () => {
+        this.rebuildTimeout = window.setTimeout(() => {
             this.rebuildTimeout = null;
             if (!this.indexer || this.indexer.isIndexingBusy()) return;
-            try {
-                await this.indexer.updateFile(file);
+            void this.indexer.updateFile(file).then(() => {
                 this.refreshConcordanceView();
                 this.refreshSettings();
-            } catch {
-            }
+            }).catch(() => {
+                // Update failed - skip
+            });
         }, 5000);
     }
 
@@ -443,11 +425,11 @@ export default class ConversumPlugin extends Plugin {
 
         // Context menu - editor mode
         this.registerEvent(
-            this.app.workspace.on('editor-menu', (menu, editor) => {
+            this.app.workspace.on('editor-menu', (menu: Menu, editor: Editor) => {
                 const cursor = editor.getCursor();
                 const line = editor.getLine(cursor.line);
                 let hasReference = false;
-                let matchedEntry: any = null;
+                let matchedEntry: ParsedReference | null = null;
 
                 if (isEngineReady()) {
                     const activeFile = this.app.workspace.getActiveFile();
@@ -464,8 +446,8 @@ export default class ConversumPlugin extends Plugin {
                         const cursorCh = cursor.ch;
                         const isForced = line.includes('{{') && line.includes('}}');
                         for (const entry of parsed) {
-                            let startPos = entry[1] as number;
-                            let endPos = entry[2] as number;
+                            let startPos = entry[1];
+                            let endPos = entry[2];
                             if (isForced) {
                                 startPos += 2;
                                 endPos += 2;
@@ -479,17 +461,17 @@ export default class ConversumPlugin extends Plugin {
                     }
                 }
 
-                menu.addItem((item: any) => {
+                menu.addItem((item: MenuItem) => {
                     item.setTitle('con[VER]sum').setIcon('book-open');
-                    const submenu = item.setSubmenu();
-                    submenu.addItem((subItem: any) => {
+                    const submenu = getSubmenu(item);
+                    submenu.addItem((subItem: MenuItem) => {
                         subItem.setTitle('Open concordance').setIcon('book-open');
                         subItem.onClick(() => {
                             void this.openConcordanceView();
                         });
                     });
                     if (hasReference && matchedEntry) {
-                        submenu.addItem((subItem: any) => {
+                        submenu.addItem((subItem: MenuItem) => {
                             subItem.setTitle('Find related notes').setIcon('link');
                             subItem.onClick(() => {
                                 this.showRelatedNotesFromParsed([matchedEntry]);
@@ -506,7 +488,7 @@ export default class ConversumPlugin extends Plugin {
             if (!view || view.getMode() !== 'preview') return;
             const activeFile = this.app.workspace.getActiveFile();
             const sourceLang = this.getEffectiveSourceLanguage(activeFile);
-            let parsed: any[] | null = null;
+            let parsed: ParsedReference[] | null = null;
             const selection = activeDocument.getSelection()?.toString() || '';
             if (selection) {
                 const processedText = this.transformForcedReferences(selection);
@@ -568,8 +550,8 @@ export default class ConversumPlugin extends Plugin {
                     const rangeKey = `${dataBcv}-${dataBcv}`;
                     const entry = this.indexer?.getReference(rangeKey);
                     if (entry) {
-                        const refData = [[displayText, 0, displayText.length, [[dataBcv, dataBcv]]]];
-                        this.showReadingModeMenu(evt, refData as any[]);
+                        const refData: ParsedReference[] = [[displayText, 0, displayText.length, [[dataBcv, dataBcv]]]];
+                        this.showReadingModeMenu(evt, refData);
                     } else {
                         this.showReadingModeMenu(evt, null);
                     }
@@ -619,7 +601,7 @@ export default class ConversumPlugin extends Plugin {
                 const processedText = this.transformForcedReferences(textToParse);
                 const parsedResult = parseReferences(processedText, sourceLang, this.settings.outputLanguage, this.settings.nameFormat);
                 if (parsedResult && parsedResult.length > 0) {
-                    const refText = parsedResult[0][0] as string;
+                    const refText = parsedResult[0][0];
                     const contextText = element.textContent || '';
                     const parentText = element.parentElement?.textContent || '';
                     const fullContext = parentText || contextText;
@@ -632,14 +614,14 @@ export default class ConversumPlugin extends Plugin {
         });
     }
 
-    private showReadingModeMenu(evt: MouseEvent, parsed: any[] | null): void {
+    private showReadingModeMenu(evt: MouseEvent, parsed: ParsedReference[] | null): void {
         evt.preventDefault();
         evt.stopPropagation();
         const menu = new Menu();
-        menu.addItem((item: any) => {
+        menu.addItem((item: MenuItem) => {
             item.setTitle('con[VER]sum').setIcon('book-open');
-            const submenu = item.setSubmenu();
-            submenu.addItem((subItem: any) => {
+            const submenu = getSubmenu(item);
+            submenu.addItem((subItem: MenuItem) => {
                 subItem.setTitle('Open concordance').setIcon('book-open');
                 subItem.onClick(() => {
                     void this.openConcordanceView();
@@ -653,7 +635,7 @@ export default class ConversumPlugin extends Plugin {
                     const offset = position.offset;
                     if (node && node.nodeType === Node.TEXT_NODE) {
                         const text = (node as Text).textContent || '';
-                        const refText = parsed[0][0] as string;
+                        const refText = parsed[0][0];
                         const cleanText = text.replace(/\{\{|\}\}/g, '');
                         if (cleanText.includes(refText)) {
                             const startIdx = cleanText.indexOf(refText);
@@ -668,14 +650,14 @@ export default class ConversumPlugin extends Plugin {
                     } else if (node && node.nodeType === Node.ELEMENT_NODE) {
                         const parent = node as Element;
                         const text = parent.textContent || '';
-                        const refText = parsed[0][0] as string;
+                        const refText = parsed[0][0];
                         if (text.includes(refText)) {
                             isOnRef = true;
                         }
                     }
                 }
                 if (isOnRef) {
-                    submenu.addItem((subItem: any) => {
+                    submenu.addItem((subItem: MenuItem) => {
                         subItem.setTitle('Find related notes').setIcon('link');
                         subItem.onClick(() => {
                             this.showRelatedNotesFromParsed(parsed);
@@ -749,18 +731,6 @@ export default class ConversumPlugin extends Plugin {
                 return;
             }
         }
-        const settingTabs = (this.app as any).setting?.tabContainer?.children;
-        if (settingTabs) {
-            for (const child of settingTabs) {
-                if (child.textContent?.includes('con[VER]sum')) {
-                    const tab = child;
-                    if (tab && typeof tab.display === 'function') {
-                        tab.display();
-                    }
-                    break;
-                }
-            }
-        }
     }
 
     // ============================================================
@@ -790,10 +760,10 @@ export default class ConversumPlugin extends Plugin {
             return null;
         }
         for (const entry of parsed) {
-            const startPos = entry[1] as number;
-            const endPos = entry[2] as number;
-            const matchedText = entry[0] as string;
-            const ranges = entry[3] as string[][];
+            const startPos = entry[1];
+            const endPos = entry[2];
+            const matchedText = entry[0];
+            const ranges = entry[3];
             if (position >= startPos && position < endPos) {
                 if (ranges && ranges.length > 0) {
                     return {
@@ -807,7 +777,7 @@ export default class ConversumPlugin extends Plugin {
         return null;
     }
 
-    private showRelatedNotesFromParsed(parsed: any[], evt?: MouseEvent): void {
+    private showRelatedNotesFromParsed(parsed: ParsedReference[], evt?: MouseEvent): void {
         if (!parsed || parsed.length === 0) {
             const activeFile = this.app.workspace.getActiveFile();
             const sourceLang = this.getEffectiveSourceLanguage(activeFile);
@@ -816,7 +786,7 @@ export default class ConversumPlugin extends Plugin {
             return;
         }
         
-        const ranges = parsed[0][3] as string[][];
+        const ranges = parsed[0][3];
         if (!ranges || ranges.length === 0) {
             const activeFile = this.app.workspace.getActiveFile();
             const sourceLang = this.getEffectiveSourceLanguage(activeFile);
@@ -894,8 +864,8 @@ export default class ConversumPlugin extends Plugin {
         const formatted = this.formatReferenceOnTheFly(firstEntry);
         let x = 0, y = 0;
         try {
-            const editorView = (editor as any).cm?.view || (editor as any).cm;
-            if (editorView && typeof editorView.coordsAtPos === 'function') {
+            const editorView = (editor as unknown as { cm?: { view?: { posAtCoords: (pos: { line: number; ch: number }) => number | null; coordsAtPos: (pos: number) => { left: number; top: number } | null } } }).cm?.view;
+            if (editorView) {
                 const pos = editorView.posAtCoords({ line: cursor.line, ch: cursor.ch });
                 if (pos !== null && pos !== undefined) {
                     const coords = editorView.coordsAtPos(pos);
@@ -906,6 +876,7 @@ export default class ConversumPlugin extends Plugin {
                 }
             }
         } catch {
+            // Fallback below
         }
 
         if (x === 0 && y === 0) {
@@ -950,7 +921,7 @@ export default class ConversumPlugin extends Plugin {
         }
     }
 
-    private generateConcordanceContent(data: any): string {
+    private generateConcordanceContent(data: ConversumData): string {
         const lines: string[] = [];
         const vaultName = this.app.vault.getName();
         lines.push(`# ${vaultName} — Scripture Concordance`);

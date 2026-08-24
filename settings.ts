@@ -1,13 +1,14 @@
 // settings.ts
 
-import { PluginSettingTab, Setting, Notice } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
 import { getAvailableLanguages, getEngineVersion } from './engine-wrapper';
+import { NameFormat } from './types';
 import type ConversumPlugin from './main';
 
 export class ConversumSettingTab extends PluginSettingTab {
     plugin: ConversumPlugin;
 
-    constructor(app: any, plugin: ConversumPlugin) {
+    constructor(app: App, plugin: ConversumPlugin) {
         super(app, plugin);
         this.plugin = plugin;
     }
@@ -66,16 +67,16 @@ export class ConversumSettingTab extends PluginSettingTab {
 
         const footerEl = containerEl.createDiv({ cls: 'conversum-settings-footer' });
         const footerText = footerEl.createSpan();
-        footerText.appendChild(document.createTextNode('My other Obsidian plugin: '));
+        footerText.appendChild(activeDocument.createTextNode('My other Obsidian plugin: '));
         footerText.createEl('strong', { text: 'tra.VER:ture' });
-        footerText.appendChild(document.createTextNode(': '));
+        footerText.appendChild(activeDocument.createTextNode(': '));
         const githubLink = footerText.createEl('a', {
             text: 'GitHub repo',
             href: 'https://github.com/erykjj/traverture'
         });
         githubLink.setAttribute('target', '_blank');
         githubLink.setAttribute('rel', 'noopener noreferrer');
-        footerText.appendChild(document.createTextNode(', '));
+        footerText.appendChild(activeDocument.createTextNode(', '));
         const obsidianLink = footerText.createEl('a', {
             text: 'Obsidian Community',
             href: 'https://community.obsidian.md/plugins/traverture'
@@ -86,8 +87,8 @@ export class ConversumSettingTab extends PluginSettingTab {
 
     private renderSettings(containerEl: HTMLElement): void {
         const languages = getAvailableLanguages();
-        const nonAslLanguages = languages.filter((l: any) => l.code !== 'ase');
-        const langOptions = nonAslLanguages.map((l: any) => ({
+        const nonAslLanguages = languages.filter((l) => l.code !== 'ase');
+        const langOptions = nonAslLanguages.map((l) => ({
             value: l.code,
             display: `${l.vernacularName} (${l.code})`
         }));
@@ -139,7 +140,7 @@ export class ConversumSettingTab extends PluginSettingTab {
                 dropdown.addOption('official', 'Official (1Co)');
                 dropdown.setValue(this.plugin.settings.nameFormat);
                 dropdown.onChange(async (value: string) => {
-                    this.plugin.settings.nameFormat = value as 'full' | 'standard' | 'official';
+                    this.plugin.settings.nameFormat = value as NameFormat;
                     await this.plugin.saveSettings();
                     this.plugin.updateIndexerSettings();
                     await this.plugin.reformatAllReferences();

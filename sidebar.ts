@@ -274,7 +274,6 @@ export class ConcordanceView extends ItemView {
         for (const book of this.bookGroups) {
             const bookEl = this.resultsContainer.createDiv({ cls: 'conversum-book' });
             bookEl.dataset.bookId = String(book.bookId);
-            (bookEl as any)._bookData = book;
             const header = bookEl.createDiv({ cls: 'conversum-book-header' });
             const toggle = header.createSpan({ cls: 'conversum-toggle' });
             toggle.textContent = book.expanded ? '▼' : '▶';
@@ -304,7 +303,6 @@ export class ConcordanceView extends ItemView {
             const chapterKey = `${bookId}:${chapter.chapter}`;
             const chapterEl = container.createDiv({ cls: 'conversum-chapter' });
             chapterEl.dataset.chapterKey = chapterKey;
-            (chapterEl as any)._chapterData = chapter;
             const header = chapterEl.createDiv({ cls: 'conversum-chapter-header' });
             const toggle = header.createSpan({ cls: 'conversum-toggle' });
             toggle.textContent = chapter.expanded ? '▼' : '▶';

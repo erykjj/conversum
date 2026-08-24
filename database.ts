@@ -51,7 +51,7 @@ export class IndexDatabase {
                     dbData = new Uint8Array(fileContent);
                 }
             } catch {
-                // console.log('con[VER]sum: No existing database file found, creating new one'); // DEBUG
+                // No existing database file found, creating new one
             }
             this.db = dbData ? new SQL.Database(dbData) : new SQL.Database();
             this.db.run('PRAGMA foreign_keys = ON;');
@@ -59,7 +59,6 @@ export class IndexDatabase {
             this.cleanupOrphans();
             await this.loadDataFromDB();
             this.initialized = true;
-            // console.log('con[VER]sum: SQLite initialized'); // DEBUG
             await this.saveToDisk();
         } catch (e) {
             console.error('con[VER]sum: Failed to initialize SQLite:', e);
@@ -208,7 +207,7 @@ export class IndexDatabase {
                 }
 
                 for (const [, data] of refMap) {
-                    const files: {path: string, occurrences: number}[] = [];
+                    const files: Array<{path: string, occurrences: number}> = [];
                     let totalOccurrences = 0;
                     for (const [filePath, count] of data.occurrenceCounts) {
                         files.push({ path: filePath, occurrences: count });
@@ -249,7 +248,7 @@ export class IndexDatabase {
             const configDir = this.plugin.app.vault.configDir;
             await this.plugin.app.vault.adapter.writeBinary(
                 `${configDir}/plugins/conversum/${DB_NAME}`,
-                dbData as any
+                dbData.buffer as ArrayBuffer
             );
         } catch (e) {
             console.error('con[VER]sum: Failed to save database to disk:', e);
@@ -573,6 +572,11 @@ export class IndexDatabase {
         `);
         stmt.run([formatted, rangeKey]);
         stmt.free();
+    }
+
+    clearFormattedReferences(): void {
+        if (!this.db) return;
+        this.db.run('UPDATE ref_detail SET formatted = NULL');
     }
 
     cleanupOrphans(): void {
@@ -952,7 +956,6 @@ export class IndexDatabase {
             this.db.close();
             this.db = null;
             this.initialized = false;
-            // console.log('con[VER]sum: SQLite closed'); // DEBUG
         }
     }
 }

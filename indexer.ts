@@ -4,7 +4,7 @@ import type { Vault, TFile } from 'obsidian';
 import { IndexDatabase } from './database';
 import { parseReferences, isEngineReady, decodeScriptures, resolveLanguage } from './engine-wrapper';
 import type ConversumPlugin from './main';
-import { ReferenceIndexEntry, FileCacheEntry, IndexProgress, ConversumData } from './types';
+import { ReferenceIndexEntry, FileCacheEntry, IndexProgress, ConversumData, NameFormat, ParsedReference } from './types';
 
 export function getRangeKey(startBcv: string, endBcv: string): string {
     return `${startBcv}-${endBcv}`;
@@ -14,12 +14,26 @@ export function getStartBcvFromKey(key: string): string {
     return key.split('-')[0];
 }
 
+interface FileReference {
+    startBcv: string;
+    endBcv: string;
+    bookId: number;
+    chapter: number;
+    startVerse: number;
+    endVerse: number;
+    endChapter?: number;
+}
+
+interface FrontmatterData {
+    [key: string]: string;
+}
+
 export class ScriptureIndexer {
     private vault: Vault;
     private plugin: ConversumPlugin;
     private sourceLanguage: string;
     private outputLanguage: string;
-    private nameFormat: 'full' | 'standard' | 'official';
+    private nameFormat: NameFormat;
     private excludedFolders: string[];
     private pluginVersion: string;
     private db: IndexDatabase;
@@ -44,7 +58,7 @@ export class ScriptureIndexer {
         plugin: ConversumPlugin,
         sourceLanguage: string,
         outputLanguage: string,
-        nameFormat: 'full' | 'standard' | 'official',
+        nameFormat: NameFormat,
         excludedFolders: string[],
         pluginVersion: string,
         db: IndexDatabase
@@ -92,12 +106,12 @@ export class ScriptureIndexer {
         return false;
     }
 
-    private extractFrontmatter(content: string): any | null {
+    private extractFrontmatter(content: string): FrontmatterData | null {
         if (!content.startsWith('---')) return null;
         const endIndex = content.indexOf('---', 3);
         if (endIndex === -1) return null;
         const frontmatterText = content.substring(3, endIndex).trim();
-        const result: any = {};
+        const result: FrontmatterData = {};
         for (const line of frontmatterText.split('\n')) {
             const match = line.match(/^([^:]+):\s*(.+)$/);
             if (match) {
@@ -133,24 +147,8 @@ export class ScriptureIndexer {
         return content;
     }
 
-    private parseFileReferences(content: string): Array<{ 
-        startBcv: string; 
-        endBcv: string; 
-        bookId: number; 
-        chapter: number; 
-        startVerse: number;
-        endVerse: number;
-        endChapter?: number;
-    }> {
-        const result: Array<{ 
-            startBcv: string; 
-            endBcv: string; 
-            bookId: number; 
-            chapter: number; 
-            startVerse: number;
-            endVerse: number;
-            endChapter?: number;
-        }> = [];
+    private parseFileReferences(content: string): FileReference[] {
+        const result: FileReference[] = [];
         if (!isEngineReady()) {
             return result;
         }
@@ -164,7 +162,7 @@ export class ScriptureIndexer {
 
         let processedContent = contentWithoutFrontmatter;
         if (processedContent.includes('{{')) {
-            processedContent = processedContent.replace(/\{\{(.+?)\}\}/g, (_match, inner) => {
+            processedContent = processedContent.replace(/\{\{(.+?)\}\}/g, (_match, inner: string) => {
                 const cleaned = inner.replace(/\*\*/g, '').replace(/\*/g, '');
                 return '⟪⟪' + cleaned + '⟫⟫';
             });
@@ -179,7 +177,7 @@ export class ScriptureIndexer {
             );
             if (!parsed) return result;
             for (const entry of parsed) {
-                const ranges = entry[3] as string[][];
+                const ranges = entry[3];
                 if (!ranges || ranges.length === 0) continue;
                 for (const range of ranges) {
                     const startBcv = range[0];
@@ -203,6 +201,7 @@ export class ScriptureIndexer {
                 }
             }
         } catch {
+            // Parsing failed - no references found
         }
         return result;
     }
@@ -215,7 +214,7 @@ export class ScriptureIndexer {
         this.abortFormatting();
         try {
             this.db.beginTransaction();
-            (this.db as any).db.run('UPDATE ref_detail SET formatted = NULL');
+            this.db.clearFormattedReferences();
             await this.db.commitTransaction();
         } catch (e) {
             this.db.rollbackTransaction();
@@ -253,10 +252,9 @@ export class ScriptureIndexer {
         }
         this.isFormatting = true;
         this.formattingAbortRequested = false;
-        // console.log(`con[VER]sum: Starting background formatting (${unformattedCount} unformatted references)`); // DEBUG
         this.plugin.refreshSettings();
         this.formattingTimeout = window.setTimeout(() => {
-            this.formatBatch();
+            void this.formatBatch();
         }, 100);
     }
 
@@ -269,7 +267,6 @@ export class ScriptureIndexer {
         const rangeKeys = this.db.getUnformattedRangeKeys(this.formattingBatchSize);
         if (rangeKeys.length === 0) {
             this.isFormatting = false;
-            // console.log('con[VER]sum: Formatting complete'); // DEBUG
             this.plugin.refreshConcordanceView();
             this.plugin.refreshSettings();
             return;
@@ -295,6 +292,7 @@ export class ScriptureIndexer {
                     const formatted = decoded && decoded.length > 0 ? decoded[0] : `${data.startBcv}-${data.endBcv}`;
                     this.db.updateFormatted(rangeKey, formatted);
                 } catch {
+                    // Skip failed formatting
                 }
             }
             if (!this.formattingAbortRequested) {
@@ -307,7 +305,7 @@ export class ScriptureIndexer {
             }
             this.plugin.refreshSettings();
             this.formattingTimeout = window.setTimeout(() => {
-                this.formatBatch();
+                void this.formatBatch();
             }, this.formattingDelayMs);
         } catch {
             this.db.rollbackTransaction();
@@ -339,6 +337,7 @@ export class ScriptureIndexer {
             this.plugin.settings.rebuildStatus = 'in_progress';
             await this.plugin.saveSettings();
         } catch {
+            // Save failed - continue anyway
         }
         try {
             const files = this.vault.getMarkdownFiles();
@@ -394,7 +393,7 @@ export class ScriptureIndexer {
                             );
                             if (referenceMap.has(key)) {
                                 const entry = referenceMap.get(key)!;
-                                const existingFile = entry.files.find((f: { path: string }) => f.path === file.path);
+                                const existingFile = entry.files.find((f) => f.path === file.path);
                                 if (existingFile) {
                                     existingFile.occurrences++;
                                 } else {
@@ -448,8 +447,8 @@ export class ScriptureIndexer {
                 this.plugin.settings.rebuildStatus = 'complete';
                 await this.plugin.saveSettings();
             } catch {
+                // Save failed - index is still built
             }
-            // console.log(`con[VER]sum: Index rebuild complete: ${Object.keys(newData.references).length} unique refs`); // DEBUG
             this.progress.status = 'complete';
             this.progress.currentFile = undefined;
             onProgress?.(this.progress);
@@ -461,6 +460,7 @@ export class ScriptureIndexer {
                 this.plugin.settings.rebuildStatus = 'failed';
                 await this.plugin.saveSettings();
             } catch {
+                // Save failed
             }
             this.progress.status = 'error';
             console.error('con[VER]sum: Index rebuild failed:', e);
@@ -489,7 +489,7 @@ export class ScriptureIndexer {
                     for (const key of cached.references) {
                         const entry = this.data.references[key];
                         if (entry) {
-                            const idx = entry.files.findIndex((f: { path: string }) => f.path === file.path);
+                            const idx = entry.files.findIndex((f) => f.path === file.path);
                             if (idx !== -1) {
                                 entry.files.splice(idx, 1);
                                 entry.totalOccurrences -= 1;
@@ -519,7 +519,7 @@ export class ScriptureIndexer {
                     );
                     if (this.data.references[key]) {
                         const entry = this.data.references[key];
-                        const existingFile = entry.files.find((f: { path: string }) => f.path === file.path);
+                        const existingFile = entry.files.find((f) => f.path === file.path);
                         if (existingFile) {
                             existingFile.occurrences++;
                         } else {
@@ -564,6 +564,7 @@ export class ScriptureIndexer {
                 this.isIndexing = false;
             }
         } catch {
+            // File read failed - skip
         }
     }
 
@@ -582,7 +583,7 @@ export class ScriptureIndexer {
                 for (const key of cached.references) {
                     const entry = this.data.references[key];
                     if (entry) {
-                        const idx = entry.files.findIndex((f: { path: string }) => f.path === filePath);
+                        const idx = entry.files.findIndex((f) => f.path === filePath);
                         if (idx !== -1) {
                             entry.files.splice(idx, 1);
                             entry.totalOccurrences -= 1;
@@ -611,9 +612,9 @@ export class ScriptureIndexer {
         try {
             for (const rangeKey of rangeKeys) {
                 try {
-                    const formatted = this.db.getFormatted(rangeKey);
-                    if (!formatted) continue;
+                    this.db.getFormatted(rangeKey);
                 } catch {
+                    // Skip
                 }
             }
             await this.db.commitTransaction();
@@ -652,7 +653,7 @@ export class ScriptureIndexer {
     updateSettings(
         sourceLanguage: string,
         outputLanguage: string,
-        nameFormat: 'full' | 'standard' | 'official',
+        nameFormat: NameFormat,
         excludedFolders: string[]
     ): void {
         const outputChanged = this.outputLanguage !== outputLanguage || this.nameFormat !== nameFormat;
@@ -661,7 +662,6 @@ export class ScriptureIndexer {
         this.nameFormat = nameFormat;
         this.excludedFolders = excludedFolders;
         if (outputChanged) {
-            // console.log('con[VER]sum: Output language or format changed, clearing formatted cache...'); // DEBUG
             void this.clearFormatted().then(() => {
                 this.startBackgroundFormatting();
             });

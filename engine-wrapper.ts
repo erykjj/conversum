@@ -1,13 +1,18 @@
 // engine-wrapper.ts
 
-import * as wasmModule from './engine.js';
+// @ts-ignore
+import * as wasmModuleUntyped from './engine.js';
+// @ts-ignore
 import wasmBinary from './engine_bg.wasm';
+import { TravertureEngineInstance, TravertureEngineModule, NameFormat, ParsedReference } from './types';
+
+const wasmModule = wasmModuleUntyped as unknown as TravertureEngineModule;
 
 let engineInitialized = false;
 
-const enginePool = new Map<string, any>();
+const enginePool = new Map<string, TravertureEngineInstance>();
 
-function getEngineKey(language: string, format: 'full' | 'standard' | 'official'): string {
+function getEngineKey(language: string, format: NameFormat): string {
     return `${language}|${format}`;
 }
 
@@ -25,15 +30,15 @@ export async function initEngine(): Promise<void> {
 
 function getOrCreateEngine(
     language: string,
-    format: 'full' | 'standard' | 'official' = 'full'
-): any | null {
+    format: NameFormat = 'full'
+): TravertureEngineInstance | null {
     if (!engineInitialized) {
         console.error('con[VER]sum: Engine not initialized');
         return null;
     }
     const key = getEngineKey(language, format);
     if (enginePool.has(key)) {
-        return enginePool.get(key);
+        return enginePool.get(key)!;
     }
     try {
         const engine = new wasmModule.TravertureEngine(language, language, format, false);
@@ -60,14 +65,14 @@ export function getEnginePoolSize(): number {
     return enginePool.size;
 }
 
-function getParsingEngine(sourceLanguage: string): any | null {
+function getParsingEngine(sourceLanguage: string): TravertureEngineInstance | null {
     return getOrCreateEngine(sourceLanguage, 'full');
 }
 
 function getDecodingEngine(
     outputLanguage: string,
-    nameFormat: 'full' | 'standard' | 'official' = 'full'
-): any | null {
+    nameFormat: NameFormat = 'full'
+): TravertureEngineInstance | null {
     return getOrCreateEngine(outputLanguage, nameFormat);
 }
 
@@ -114,7 +119,7 @@ export function isWholeBookReference(startBcv: string, endBcv: string): boolean 
 export function getBookName(
     bookNumber: number,
     langCode: string,
-    format: 'full' | 'standard' | 'official' = 'full',
+    format: NameFormat = 'full',
     capitalize: boolean = false
 ): string {
     if (!engineInitialized) {
@@ -138,25 +143,45 @@ export function getLangSymbol(langCode: string): string {
     }
 }
 
-export function getAvailableLanguages(): any[] {
+export interface EngineLanguageInfo {
+    language_code: string;
+    language_symbol: string;
+    language_name: string;
+    english_name: string;
+    code: string;
+    symbol: string;
+    vernacularName: string;
+    englishName: string;
+}
+
+export function getAvailableLanguages(): EngineLanguageInfo[] {
     if (!engineInitialized) {
         return [];
     }
     
     try {
         const json = wasmModule.TravertureEngine.get_available_languages();
-        const parsed = JSON.parse(json);
+        const parsed = JSON.parse(json) as Array<{
+            code?: string;
+            language_code?: string;
+            symbol?: string;
+            language_symbol?: string;
+            vernacularName?: string;
+            language_name?: string;
+            englishName?: string;
+            english_name?: string;
+        }>;
         return parsed
-            .filter((lang: any) => lang.code !== 'ase' && lang.language_code !== 'ase')
-            .map((lang: any) => ({
-                language_code: lang.language_code || lang.code,
-                language_symbol: lang.language_symbol || lang.symbol,
-                language_name: lang.language_name || lang.vernacularName || lang.languageName,
-                english_name: lang.english_name || lang.englishName,
-                code: lang.language_code || lang.code,
-                symbol: lang.language_symbol || lang.symbol,
-                vernacularName: lang.language_name || lang.vernacularName || lang.languageName,
-                englishName: lang.english_name || lang.englishName
+            .filter((lang) => lang.code !== 'ase' && lang.language_code !== 'ase')
+            .map((lang) => ({
+                language_code: lang.language_code || lang.code || '',
+                language_symbol: lang.language_symbol || lang.symbol || '',
+                language_name: lang.language_name || lang.vernacularName || '',
+                english_name: lang.english_name || lang.englishName || '',
+                code: lang.language_code || lang.code || '',
+                symbol: lang.language_symbol || lang.symbol || '',
+                vernacularName: lang.language_name || lang.vernacularName || '',
+                englishName: lang.english_name || lang.englishName || ''
             }));
     } catch {
         return [];
@@ -189,15 +214,15 @@ export function parseReferences(
     text: string,
     sourceLanguage: string,
     outputLanguage: string,
-    nameFormat: 'full' | 'standard' | 'official' = 'full',
+    nameFormat: NameFormat = 'full',
     capitalize: boolean = false
-): any[] | null {
+): ParsedReference[] | null {
     const resolvedSource = resolveLanguage(sourceLanguage) || sourceLanguage;
     const engine = getParsingEngine(resolvedSource);
     if (!engine) return null;
     try {
         const result = engine.parse(resolvedSource, outputLanguage, nameFormat, capitalize, text);
-        return JSON.parse(result);
+        return JSON.parse(result) as ParsedReference[];
     } catch {
         return null;
     }
@@ -206,7 +231,7 @@ export function parseReferences(
 export function decodeScriptures(
     ranges: Array<[string, string]>,
     outputLanguage: string,
-    nameFormat: 'full' | 'standard' | 'official' = 'full'
+    nameFormat: NameFormat = 'full'
 ): string[] | null {
     const resolvedOutput = resolveLanguage(outputLanguage) || outputLanguage;
     const engine = getDecodingEngine(resolvedOutput, nameFormat);
@@ -214,7 +239,7 @@ export function decodeScriptures(
     try {
         const json = JSON.stringify(ranges);
         const result = engine.decode_scriptures(json);
-        return JSON.parse(result);
+        return JSON.parse(result) as string[];
     } catch (e) {
         console.error('con[VER]sum: Failed to decode scriptures:', e);
         return null;
