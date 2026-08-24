@@ -7,7 +7,7 @@ import { ScriptureIndexer } from './indexer';
 import { RelatedNotesPopout } from './related';
 import { ConversumSettingTab } from './settings';
 import { ConcordanceView } from './sidebar';
-import { ConversumSettings, DEFAULT_SETTINGS, VIEW_TYPE_CONVERSUM_CONCORDANCE, IndexProgress, ReferenceIndexEntry, ParsedReference, NameFormat, ConversumData } from './types';
+import { ConversumSettings, DEFAULT_SETTINGS, VIEW_TYPE_CONVERSUM_CONCORDANCE, IndexProgress, ReferenceIndexEntry, ParsedReference, ConversumData } from './types';
 
 function getSubmenu(item: MenuItem): Menu {
     return (item as unknown as { setSubmenu(): Menu }).setSubmenu();
@@ -226,7 +226,7 @@ export default class ConversumPlugin extends Plugin {
                 this.settings.excludedFolders = savedData.excludedFolders;
             }
             if (typeof savedData.rebuildStatus === 'string') {
-                this.settings.rebuildStatus = savedData.rebuildStatus as ConversumSettings['rebuildStatus'];
+                this.settings.rebuildStatus = savedData.rebuildStatus;
             }
         } else {
             this.settings.autoIndex = false;

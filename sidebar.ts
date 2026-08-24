@@ -418,17 +418,19 @@ export class ConcordanceView extends ItemView {
                 text: file.path.replace(/\.md$/, '')
             });
             link.dataset.path = file.path;
-            link.addEventListener('click', async (e) => {
+            link.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const path = (e.currentTarget as HTMLElement).dataset.path;
                 if (path) {
-                    const fileObj = this.app.vault.getAbstractFileByPath(path);
-                    if (fileObj instanceof TFile) {
-                        await this.app.workspace.openLinkText(path, '');
-                    } else {
-                        new Notice(`File not found: ${path}`);
-                    }
+                    void (async () => {
+                        const fileObj = this.app.vault.getAbstractFileByPath(path);
+                        if (fileObj instanceof TFile) {
+                            await this.app.workspace.openLinkText(path, '');
+                        } else {
+                            new Notice(`File not found: ${path}`);
+                        }
+                    })();
                 }
             });
             unit.createSpan({ cls: 'conversum-file-count', text: ' (' + file.occurrences + ')' });

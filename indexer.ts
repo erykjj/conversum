@@ -4,7 +4,7 @@ import type { Vault, TFile } from 'obsidian';
 import { IndexDatabase } from './database';
 import { parseReferences, isEngineReady, decodeScriptures, resolveLanguage } from './engine-wrapper';
 import type ConversumPlugin from './main';
-import { ReferenceIndexEntry, FileCacheEntry, IndexProgress, ConversumData, NameFormat, ParsedReference } from './types';
+import { ReferenceIndexEntry, FileCacheEntry, IndexProgress, ConversumData, NameFormat } from './types';
 
 export function getRangeKey(startBcv: string, endBcv: string): string {
     return `${startBcv}-${endBcv}`;
