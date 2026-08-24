@@ -6,6 +6,9 @@
 
 ### Changed
 
+- Updated engine to v3
+  - under-the-hood optimizations
+
 ### Fixed
 
 ### Removed
