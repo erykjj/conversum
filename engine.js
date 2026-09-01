@@ -227,6 +227,15 @@ export class TravertureEngine {
             wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
         }
     }
+    /**
+     * Verify the integrity hash of the surrounding plugin code
+     * @param {number} hash
+     * @returns {boolean}
+     */
+    verify_integrity(hash) {
+        const ret = wasm.travertureengine_verify_integrity(this.__wbg_ptr, hash);
+        return ret !== 0;
+    }
 }
 if (Symbol.dispose) TravertureEngine.prototype[Symbol.dispose] = TravertureEngine.prototype.free;
 function __wbg_get_imports() {
