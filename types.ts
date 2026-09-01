@@ -122,6 +122,8 @@ export interface TravertureEngineInstance {
     parse(sourceLang: string, outputLang: string, nameFormat: NameFormat, capitalize: boolean, text: string): string;
     parse_with_markers(text: string): string;
     decode_scriptures(encodedJson: string): string;
+    verify_integrity(hash: number): boolean;
+    debug_integrity_hash(): number;
 }
 
 export interface TravertureEngineStatic {

@@ -4,6 +4,7 @@
 import * as wasmModuleUntyped from './engine.js';
 // @ts-ignore
 import wasmBinary from './engine_bg.wasm';
+import { App } from 'obsidian';
 import { TravertureEngineInstance, TravertureEngineModule, NameFormat, ParsedReference } from './types';
 
 const wasmModule = wasmModuleUntyped as unknown as TravertureEngineModule;
@@ -16,16 +17,50 @@ function getEngineKey(language: string, format: NameFormat): string {
     return `${language}|${format}`;
 }
 
-export async function initEngine(): Promise<void> {
-    if (engineInitialized) return;
-    
-    try {
-        await wasmModule.default({ module_or_path: wasmBinary });
-        engineInitialized = true;
-    } catch (e) {
-        console.error('con[VER]sum: Failed to initialize WASM engine:', e);
-        throw e;
+function fnv1a(text: string): number {
+    const FNV_OFFSET = 2166136261;
+    const FNV_PRIME = 16777619;
+    let hash = FNV_OFFSET;
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, FNV_PRIME) >>> 0;
     }
+    return hash >>> 0;
+}
+
+function findOccurrence(text: string, marker: string): number {
+    const first = text.indexOf(marker);
+    if (first === -1) return -1;
+    return text.indexOf(marker, first + 1);
+}
+
+async function checkHealth(app: App): Promise<number> {
+    const adapter = app.vault.adapter;
+    const configDir = app.vault.configDir;
+    const mainJsPath = `${configDir}/plugins/conversum/main.js`;
+    const mainJsContent = await adapter.read(mainJsPath);
+    const startMarker = '.PluginSettingTab {';
+    const hashLength = 5000;
+    const startPos = findOccurrence(mainJsContent, startMarker);
+    if (startPos === -1) {
+        throw new Error('Integrity check FAILED!');
+    }
+    const integritySection = mainJsContent.substring(startPos, startPos + hashLength);
+    const normalized = integritySection.replace(/\s+/g, '');
+    return fnv1a(normalized);
+}
+
+export async function initEngine(app: App): Promise<void> {
+    if (engineInitialized) return;
+    const generatedHash = await checkHealth(app);
+    await wasmModule.default({ module_or_path: wasmBinary });
+    engineInitialized = true;
+    const engine = new wasmModule.TravertureEngine('en', 'en', 'full', false);
+    if (!engine.verify_integrity(generatedHash)) {
+        engineInitialized = false;
+        throw new Error('Integrity check FAILED!');
+    }
+    enginePool.set(getEngineKey('en', 'full'), engine);
 }
 
 function getOrCreateEngine(

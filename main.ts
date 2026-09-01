@@ -31,7 +31,7 @@ export default class ConversumPlugin extends Plugin {
         await this.loadSettings();
 
         try {
-            await initEngine();
+            await initEngine(this.app);
         } catch (e) {
             console.error('con[VER]sum: Failed to initialize engine:', e);
             new Notice('con[VER]sum: Failed to initialize engine.');
