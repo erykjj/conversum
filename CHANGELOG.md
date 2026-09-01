@@ -6,13 +6,16 @@
 
 ### Changed
 
-- Engine tweaks/improvements
-
 ### Fixed
 
 ### Removed
 
 ____
+## 1.3.0 - 2026-09-01
+### Changed
+
+- Engine tweaks/improvements
+
 ## 1.2.1 - 2026-08-24
 ### Changed
 
@@ -47,6 +50,7 @@ ____
 - Initial *beta* release
 
 ____
+[1.3.0]:https://github.com/erykjj/conversum/releases/tag/1.3.0
 [1.2.1]:https://github.com/erykjj/conversum/releases/tag/1.2.1
 [1.1.0]:https://github.com/erykjj/conversum/releases/tag/1.1.0
 [1.0.1]:https://github.com/erykjj/conversum/releases/tag/1.0.1
