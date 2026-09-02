@@ -32,7 +32,6 @@ export class IndexDatabase {
     async init(): Promise<void> {
         if (this.initialized) return;
         try {
-            // console.log('con[VER]sum: Initializing SQLite...'); // DEBUG
             const SQL = await initSqlJs({
                 locateFile: (file: string) => {
                     return `data:application/wasm;base64,${SQL_WASM_BASE64}`;
