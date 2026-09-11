@@ -8,7 +8,7 @@ A scripture reference parser and cross-linker for Obsidian. Turn scattered Bible
 
 ## Security and Privacy
 
-If you are concerned about the "Scorecard" review or the "Caution" warning on the [Obsidian Community plugins page](https://community.obsidian.md/plugins/conversum), see [SECURITY](https://github.com/erykjj/conversum?tab=security-ov-file).
+See [SECURITY](https://github.com/erykjj/conversum?tab=security-ov-file).
 
 ---
 
