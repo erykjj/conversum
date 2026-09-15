@@ -6,14 +6,17 @@
 
 ### Changed
 
-- Updated engine to v3.3.0
-  - fixes for text with emojis
-
 ### Fixed
 
 ### Removed
 
 ____
+## [1.4.0] - 2026-09-15
+### Changed
+
+- Updated engine to v3.3.0
+  - fixes for text with emojis
+
 ## [1.3.1] - 2026-09-02
 ### Changed
 
@@ -58,6 +61,7 @@ ____
 - Initial *beta* release
 
 ____
+[1.4.0]:https://github.com/erykjj/conversum/releases/tag/1.4.0
 [1.3.1]:https://github.com/erykjj/conversum/releases/tag/1.3.1
 [1.3.0]:https://github.com/erykjj/conversum/releases/tag/1.3.0
 [1.2.1]:https://github.com/erykjj/conversum/releases/tag/1.2.1
