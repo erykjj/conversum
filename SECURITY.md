@@ -48,4 +48,3 @@ They:
 ## TypeScript Warnings
 
 The plugin source contains some TypeScript strictness warnings inherent to JavaScript interop (e.g., `JSON.parse` returning `any`, WASM module type casting). **These warnings are cosmetic and do not affect functionality or security**. All data is validated before use.
-```
