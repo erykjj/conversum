@@ -11,6 +11,11 @@
 ### Removed
 
 ____
+## [1.4.1] - 2026-09-16
+### Changed
+
+- Changes to silence some linter warnings
+
 ## [1.4.0] - 2026-09-15
 ### Changed
 
@@ -61,6 +66,7 @@ ____
 - Initial *beta* release
 
 ____
+[1.4.1]:https://github.com/erykjj/conversum/releases/tag/1.4.1
 [1.4.0]:https://github.com/erykjj/conversum/releases/tag/1.4.0
 [1.3.1]:https://github.com/erykjj/conversum/releases/tag/1.3.1
 [1.3.0]:https://github.com/erykjj/conversum/releases/tag/1.3.0
