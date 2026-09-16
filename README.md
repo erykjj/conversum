@@ -68,4 +68,7 @@ See [SECURITY](https://github.com/erykjj/conversum?tab=security-ov-file).
 
 Feel free to get in touch and post any [issues and/or suggestions](https://github.com/erykjj/conversum/issues).
 
-My other Obsidian plugin: **tra.VER:ture**: [GitHub repo](https://github.com/erykjj/traverture), [Obsidian Community](https://community.obsidian.md/plugins/traverture)
+My other Obsidian plugins: 
+
+- **in(REF)ens**: [GitHub repo](https://github.com/erykjj/inrefens), [Obsidian Community](https://community.obsidian.md/plugins/inrefens)
+- **tra.VER:ture**: [GitHub repo](https://github.com/erykjj/traverture), [Obsidian Community](https://community.obsidian.md/plugins/traverture)
