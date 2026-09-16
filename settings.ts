@@ -67,7 +67,7 @@ export class ConversumSettingTab extends PluginSettingTab {
 
         const footerEl = containerEl.createDiv({ cls: 'conversum-settings-footer' });
         const footerText = footerEl.createSpan();
-        footerText.appendChild(activeDocument.createTextNode('My other Obsidian plugin: '));
+        footerText.appendChild(activeDocument.createTextNode('My other Obsidian plugins: '));
 
         const travertureStrong = footerText.createEl('strong');
         const travertureLink = travertureStrong.createEl('a', {
