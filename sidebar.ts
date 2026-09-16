@@ -110,7 +110,7 @@ export class ConcordanceView extends ItemView {
         const data = this.plugin.indexer?.getData();
         const totalRefs = data ? Object.keys(data.references).length : 0;
         this.totalRefs = totalRefs;
-        const countEl = topRow.createEl('span', {
+        const countEl = topRow.createSpan({
             text: this.searchQuery ? `Filtered: 0 / ${totalRefs}` : `${totalRefs} references`,
             cls: 'conversum-count'
         });

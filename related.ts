@@ -92,7 +92,7 @@ export class RelatedNotesPopout {
         const currentFilePath = currentFile ? currentFile.path : null;
         const otherFiles = allFiles.filter(f => f.path !== currentFilePath);
 
-        const popout = activeDocument.createElement('div');
+        const popout = createDiv();
         popout.className = 'conversum-related-popout';
         popout.setCssStyles?.({
             position: 'fixed',
@@ -123,7 +123,7 @@ export class RelatedNotesPopout {
         popout.style.top = top + 'px';
 
         const header = popout.createDiv({ cls: 'conversum-related-popout-header' });
-        header.createEl('span', { text: formatted, cls: 'conversum-related-popout-title' });
+        header.createSpan({ text: formatted, cls: 'conversum-related-popout-title' });
         const body = popout.createDiv({ cls: 'conversum-related-popout-body' });
 
         if (otherFiles.length === 0) {
@@ -151,7 +151,7 @@ export class RelatedNotesPopout {
                         }
                     })();
                 });
-                entryContainer.createEl('span', { 
+                entryContainer.createSpan({ 
                     cls: 'conversum-related-popout-count',
                     text: `\u00A0(${file.occurrences})`
                 });
