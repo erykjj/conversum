@@ -6,14 +6,17 @@
 
 ### Changed
 
-- Updated engine to v3.3.1
-  - Refined custom variats
-
 ### Fixed
 
 ### Removed
 
 ____
+## [1.4.3] - 2026-09-21
+### Changed
+
+- Updated engine to v3.3.1
+  - Refined custom variants
+
 ## [1.4.1] - 2026-09-16
 ### Changed
 
