@@ -71,4 +71,5 @@ Feel free to get in touch and post any [issues and/or suggestions](https://githu
 My other Obsidian plugins: 
 
 - **in(REF)ens**: [GitHub repo](https://github.com/erykjj/inrefens), [Obsidian Community](https://community.obsidian.md/plugins/inrefens)
+- **mu/TEX/tum**: [GitHub repo](https://github.com/erykjj/mutextum), [Obsidian Community](https://community.obsidian.md/plugins/mutextum)
 - **tra.VER:ture**: [GitHub repo](https://github.com/erykjj/traverture), [Obsidian Community](https://community.obsidian.md/plugins/traverture)
