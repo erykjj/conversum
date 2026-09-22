@@ -11,6 +11,11 @@
 ### Removed
 
 ____
+## [1.4.4] - 2026-09-22
+### Changed
+
+- Added link to new plugin
+
 ## [1.4.3] - 2026-09-21
 ### Changed
 
@@ -72,6 +77,8 @@ ____
 - Initial *beta* release
 
 ____
+[1.4.4]:https://github.com/erykjj/conversum/releases/tag/1.4.4
+[1.4.3]:https://github.com/erykjj/conversum/releases/tag/1.4.3
 [1.4.1]:https://github.com/erykjj/conversum/releases/tag/1.4.1
 [1.4.0]:https://github.com/erykjj/conversum/releases/tag/1.4.0
 [1.3.1]:https://github.com/erykjj/conversum/releases/tag/1.3.1
