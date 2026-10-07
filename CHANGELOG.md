@@ -6,13 +6,16 @@
 
 ### Changed
 
-- Adapt to declarative settings API
-
 ### Fixed
 
 ### Removed
 
 ____
+## [1.5.0] - 2026-10-07
+### Changed
+
+- Adapt to declarative settings API
+
 ## [1.4.4] - 2026-09-22
 ### Changed
 
@@ -79,6 +82,7 @@ ____
 - Initial *beta* release
 
 ____
+[1.5.0]:https://github.com/erykjj/conversum/releases/tag/1.5.0
 [1.4.4]:https://github.com/erykjj/conversum/releases/tag/1.4.4
 [1.4.3]:https://github.com/erykjj/conversum/releases/tag/1.4.3
 [1.4.1]:https://github.com/erykjj/conversum/releases/tag/1.4.1
