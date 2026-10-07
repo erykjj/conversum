@@ -34,7 +34,7 @@ export class ConversumSettingTab extends PluginSettingTab {
                 break;
             }
             case 'nameFormat': {
-                s.nameFormat = value as NameFormat;
+                s.nameFormat = value;
                 await this.plugin.saveSettings();
                 this.plugin.updateIndexerSettings();
                 await this.plugin.reformatAllReferences();
