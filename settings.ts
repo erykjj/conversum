@@ -2,7 +2,6 @@
 
 import { App, PluginSettingTab, SettingDefinitionItem, Notice } from 'obsidian';
 import { getAvailableLanguages, getEngineVersion } from './engine-wrapper';
-import { NameFormat } from './types';
 import type ConversumPlugin from './main';
 
 export class ConversumSettingTab extends PluginSettingTab {
