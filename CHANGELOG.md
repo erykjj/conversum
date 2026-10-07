@@ -6,6 +6,8 @@
 
 ### Changed
 
+- Adapt to declarative settings API
+
 ### Fixed
 
 ### Removed
