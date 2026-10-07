@@ -239,7 +239,8 @@ export default class ConversumPlugin extends Plugin {
             outputLanguage: this.settings.outputLanguage,
             nameFormat: this.settings.nameFormat,
             autoIndex: this.settings.autoIndex,
-            excludedFolders: this.settings.excludedFolders
+            excludedFolders: this.settings.excludedFolders,
+            rebuildStatus: this.settings.rebuildStatus
         };
         await this.saveData(dataToSave);
     }
@@ -725,12 +726,7 @@ export default class ConversumPlugin extends Plugin {
     }
 
     public refreshSettings(): void {
-        if (this.settingsTab) {
-            if (this.settingsTab.containerEl && this.settingsTab.containerEl.children.length > 0) {
-                this.settingsTab.display();
-                return;
-            }
-        }
+        this.settingsTab?.update();
     }
 
     // ============================================================
