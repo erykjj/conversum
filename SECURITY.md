@@ -19,7 +19,7 @@ No personal data is collected, stored, or transmitted.
 The plugin reads and parses your Markdown files to build a scripture concordance. This is required for the plugin to function.
 
 ### What the plugin does:
-- **Enumerates files** - Scans the vault to find all Markdown files
+- **Enumerates files** - Scans the vault to find all Markdown files; enumeration is limited to Markdown files and respects your excluded folders
 - **Reads and parses file content** - Detects Bible references in each file when indexing is enabled
 - **Writes files** - Only when you use the Export function to create a concordance file
 - **Writes to the plugin's own data directory** - The concordance index is stored locally in the plugin folder within the vault's `.obsidian` directory
@@ -30,7 +30,7 @@ The plugin reads and parses your Markdown files to build a scripture concordance
 - Transmit file content anywhere (no network requests)
 - Store file content outside the local index database
 
-All file operations are strictly local. Parsing and indexing occur entirely in your browser and no data ever leaves your device.
+All file operations are strictly local. Parsing and indexing occur entirely on your device, and no data ever leaves it.
 
 ---
 
@@ -42,9 +42,3 @@ They:
 - Do not make any network requests
 - Do not access the file system directly (file access is done through Obsidian's API)
 - Do not read or modify DOM directly
-
----
-
-## TypeScript Warnings
-
-The plugin source contains some TypeScript strictness warnings inherent to JavaScript interop (e.g., `JSON.parse` returning `any`, WASM module type casting). **These warnings are cosmetic and do not affect functionality or security**. All data is validated before use.
