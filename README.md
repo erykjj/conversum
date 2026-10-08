@@ -8,7 +8,7 @@ A scripture reference parser and cross-linker for Obsidian. Turn scattered Bible
 
 ## Security and Privacy
 
-See [SECURITY](https://github.com/erykjj/conversum?tab=security-ov-file).
+See [the security and privacy notes](https://github.com/erykjj/conversum?tab=security-ov-file) for information on what this plugin does and does not do behind the scenes.
 
 ---
 
