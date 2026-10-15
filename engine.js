@@ -165,15 +165,16 @@ export class TravertureEngine {
      * @param {string} output_lang
      * @param {string} name_format
      * @param {boolean} capitalize
+     * @param {boolean} inrefens_enabled
      */
-    constructor(source_lang, output_lang, name_format, capitalize) {
+    constructor(source_lang, output_lang, name_format, capitalize, inrefens_enabled) {
         const ptr0 = passStringToWasm0(source_lang, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(output_lang, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         const ptr2 = passStringToWasm0(name_format, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.travertureengine_new(ptr0, len0, ptr1, len1, ptr2, len2, capitalize);
+        const ret = wasm.travertureengine_new(ptr0, len0, ptr1, len1, ptr2, len2, capitalize, inrefens_enabled);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
