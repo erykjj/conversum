@@ -17,18 +17,12 @@ See [the security and privacy notes](https://github.com/erykjj/conversum?tab=sec
 ## Features
 
 - **Automatic reference detection** – Scripture references are automatically detected in both View and Edit modes. Works with most book name variants and common abbreviations (e.g., "2 Sam.", "II Samuel", "2Sa"). References can also be force-detected by wrapping them in `{{ }}` (e.g., `{{Song of Solomon 1:1}}`). See [Known Limitations](#known-limitations) for edge cases.
-
 - **Searchable concordance** – Browse and filter references by book, chapter, or verse. All references are indexed for fast retrieval.
-
 - **Find related notes** – Right-click any valid reference to see all notes that mention that reference, including containing ranges (e.g., "Mat. 5:3-5" will find notes with "Matthew 5:1-10").
-
 - **Export to Markdown** – Generate a complete concordance as a Markdown file for reference or printing.
-
 - **Multi-language support** – Handle references in any supported language, and display book names in a different language.
   - Supported languages: Cebuano, Danish, Dutch, English, Estonian, French, German, Haitian Creole, Hungarian, Italian, Japanese, Korean, Mandarin Chinese (simplified), Norwegian, Polish, Portuguese, Romanian, Russian, Spanish, Swedish, Tagalog, Ukrainian
-
 - **Per-note language override** – Set a `language` property in the frontmatter (meta-data) of any note to override the source language for that specific file.
-
 - **Desktop and mobile support**
 
 ![preview](conversum.gif)
@@ -52,6 +46,7 @@ See [the security and privacy notes](https://github.com/erykjj/conversum?tab=sec
 - **Whole books** (like "James") are not detected unless preceded by a number (e.g., "1 John"). Use braces if detection is desired (e.g., `{{Obadiah}}`).
 - **"Song of Solomon"** and its variants are not auto-detected. Use `{{Song of Solomon 1:1}}` to force detection.
 - **Ambiguous references** like "1 John 5:3; 2 John 4" may parse incorrectly as "1 John 5:3; 2" (as in, 1 John chapter 2) and "John 4". Force detection with braces: `1 John 5:3; {{2 John 4}}`.
+- When the [in(REF)ens](https://github.com/erykjj/inrefens) [plugin](https://community.obsidian.md/plugins/inrefens) is also enabled, a lowercase **colliding abbreviation** (a publication symbol that doubles as a Bible-book abbreviation, e.g. `re`, `pr`, `le`) inside `*** … ***` (e.g. `*** re 21 ***`) is *not* indexed (it is left for in(REF)ens); capitalized forms (e.g. `*** Re 21 ***`) are indexed normally
 
 ---
 
