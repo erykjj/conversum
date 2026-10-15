@@ -11,6 +11,11 @@
 ### Removed
 
 ____
+## [1.6.0] - 2026-10-15
+### Changed
+- Updated engine to v4.1.1
+  - Update singular variants of Psalms for display
+
 ## [1.5.2] - 2026-10-07
 ### Changed
 
@@ -82,6 +87,7 @@ ____
 - Initial *beta* release
 
 ____
+[1.6.0]:https://github.com/erykjj/conversum/releases/tag/1.6.0
 [1.5.2]:https://github.com/erykjj/conversum/releases/tag/1.5.2
 [1.4.4]:https://github.com/erykjj/conversum/releases/tag/1.4.4
 [1.4.3]:https://github.com/erykjj/conversum/releases/tag/1.4.3
