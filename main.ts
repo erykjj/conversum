@@ -30,8 +30,12 @@ export default class ConversumPlugin extends Plugin {
     async onload(): Promise<void> {
         await this.loadSettings();
 
+        const inrefensOn = (this.app as unknown as {
+            plugins?: { enabledPlugins?: Set<string> };
+        }).plugins?.enabledPlugins?.has('inrefens') ?? false;
+
         try {
-            await initEngine(this.app);
+            await initEngine(this.app, inrefensOn);
         } catch (e) {
             console.error('con[VER]sum: Failed to initialize engine:', e);
             new Notice('con[VER]sum: Failed to initialize engine.');

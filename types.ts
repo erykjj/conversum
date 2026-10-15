@@ -127,7 +127,7 @@ export interface TravertureEngineInstance {
 }
 
 export interface TravertureEngineStatic {
-    new(sourceLang: string, outputLang: string, nameFormat: NameFormat, capitalize: boolean): TravertureEngineInstance;
+    new(sourceLang: string, outputLang: string, nameFormat: NameFormat, capitalize: boolean, inrefensEnabled: boolean): TravertureEngineInstance;
     get_chapter_count(bookId: number): number;
     get_verse_count(bookId: number, chapter: number): number;
     get_available_languages(): string;

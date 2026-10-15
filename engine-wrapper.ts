@@ -10,6 +10,7 @@ import { TravertureEngineInstance, TravertureEngineModule, NameFormat, ParsedRef
 const wasmModule = wasmModuleUntyped as unknown as TravertureEngineModule;
 
 let engineInitialized = false;
+let inrefensEnabled = false;
 
 const enginePool = new Map<string, TravertureEngineInstance>();
 
@@ -50,12 +51,13 @@ async function checkHealth(app: App): Promise<number> {
     return fnv1a(normalized);
 }
 
-export async function initEngine(app: App): Promise<void> {
+export async function initEngine(app: App, inrefens: boolean): Promise<void> {
     if (engineInitialized) return;
+    inrefensEnabled = inrefens;
     const generatedHash = await checkHealth(app);
     await wasmModule.default({ module_or_path: wasmBinary });
     engineInitialized = true;
-    const engine = new wasmModule.TravertureEngine('en', 'en', 'full', false);
+    const engine = new wasmModule.TravertureEngine('en', 'en', 'full', false, inrefensEnabled);
     if (!engine.verify_integrity(generatedHash)) {
         engineInitialized = false;
         throw new Error('Integrity check FAILED!');
@@ -76,7 +78,7 @@ function getOrCreateEngine(
         return enginePool.get(key)!;
     }
     try {
-        const engine = new wasmModule.TravertureEngine(language, language, format, false);
+        const engine = new wasmModule.TravertureEngine(language, language, format, false, inrefensEnabled);
         enginePool.set(key, engine);
         return engine;
     } catch {
