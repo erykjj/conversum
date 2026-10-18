@@ -166,15 +166,16 @@ export class TravertureEngine {
      * @param {string} name_format
      * @param {boolean} capitalize
      * @param {boolean} inrefens_enabled
+     * @param {number} engine_id
      */
-    constructor(source_lang, output_lang, name_format, capitalize, inrefens_enabled) {
+    constructor(source_lang, output_lang, name_format, capitalize, inrefens_enabled, engine_id) {
         const ptr0 = passStringToWasm0(source_lang, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(output_lang, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         const ptr2 = passStringToWasm0(name_format, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.travertureengine_new(ptr0, len0, ptr1, len1, ptr2, len2, capitalize, inrefens_enabled);
+        const ret = wasm.travertureengine_new(ptr0, len0, ptr1, len1, ptr2, len2, capitalize, inrefens_enabled, engine_id);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -227,15 +228,6 @@ export class TravertureEngine {
         } finally {
             wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
         }
-    }
-    /**
-     * Verify the integrity hash of the surrounding plugin code
-     * @param {number} hash
-     * @returns {boolean}
-     */
-    verify_integrity(hash) {
-        const ret = wasm.travertureengine_verify_integrity(this.__wbg_ptr, hash);
-        return ret !== 0;
     }
 }
 if (Symbol.dispose) TravertureEngine.prototype[Symbol.dispose] = TravertureEngine.prototype.free;
