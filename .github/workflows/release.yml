@@ -33,16 +33,16 @@ jobs:
             echo "TAG=${{ inputs.TAG }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Use Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 'latest'
-          cache: 'npm'
+      # - name: Use Node.js
+      #   uses: actions/setup-node@v6
+      #   with:
+      #     node-version: 'latest'
+      #     cache: 'npm'
 
-      - name: Install dependencies and build
-        run: |
-          npm install --legacy-peer-deps
-          npm run build
+      # - name: Install dependencies and build
+      #   run: |
+      #     npm install --legacy-peer-deps
+      #     npm run build
 
       - name: Extract changelog
         id: extract
