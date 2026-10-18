@@ -122,12 +122,17 @@ export interface TravertureEngineInstance {
     parse(sourceLang: string, outputLang: string, nameFormat: NameFormat, capitalize: boolean, text: string): string;
     parse_with_markers(text: string): string;
     decode_scriptures(encodedJson: string): string;
-    verify_integrity(hash: number): boolean;
-    debug_integrity_hash(): number;
 }
 
 export interface TravertureEngineStatic {
-    new(sourceLang: string, outputLang: string, nameFormat: NameFormat, capitalize: boolean, inrefensEnabled: boolean): TravertureEngineInstance;
+    new(
+        sourceLang: string,
+        outputLang: string,
+        nameFormat: NameFormat,
+        capitalize: boolean,
+        inrefensEnabled: boolean,
+        engineId: number,
+    ): TravertureEngineInstance;
     get_chapter_count(bookId: number): number;
     get_verse_count(bookId: number, chapter: number): number;
     get_available_languages(): string;

@@ -7,62 +7,57 @@ import wasmBinary from './engine_bg.wasm';
 import { App } from 'obsidian';
 import { TravertureEngineInstance, TravertureEngineModule, NameFormat, ParsedReference } from './types';
 
+const WASM_START = '/*WASM-START*/';
+const WASM_END = '/*WASM-END*/';
+const H_START = 2166136261;
+const H_END = 16777619;
 const wasmModule = wasmModuleUntyped as unknown as TravertureEngineModule;
+const enginePool = new Map<string, TravertureEngineInstance>();
 
 let engineInitialized = false;
 let inrefensEnabled = false;
-
-const enginePool = new Map<string, TravertureEngineInstance>();
+let engineId = 0;
 
 function getEngineKey(language: string, format: NameFormat): string {
     return `${language}|${format}`;
 }
 
-function fnv1a(text: string): number {
-    const FNV_OFFSET = 2166136261;
-    const FNV_PRIME = 16777619;
-    let hash = FNV_OFFSET;
-    for (let i = 0; i < text.length; i++) {
-        hash ^= text.charCodeAt(i);
-        hash = Math.imul(hash, FNV_PRIME) >>> 0;
-    }
-    return hash >>> 0;
-}
-
-function findOccurrence(text: string, marker: string): number {
-    const first = text.indexOf(marker);
-    if (first === -1) return -1;
-    return text.indexOf(marker, first + 1);
-}
-
-async function checkHealth(app: App): Promise<number> {
-    const adapter = app.vault.adapter;
-    const configDir = app.vault.configDir;
-    const mainJsPath = `${configDir}/plugins/conversum/main.js`;
-    const mainJsContent = await adapter.read(mainJsPath);
-    const startMarker = '.PluginSettingTab {';
-    const hashLength = 5000;
-    const startPos = findOccurrence(mainJsContent, startMarker);
-    if (startPos === -1) {
-        throw new Error('Integrity check FAILED!');
-    }
-    const integritySection = mainJsContent.substring(startPos, startPos + hashLength);
-    const normalized = integritySection.replace(/\s+/g, '');
-    return fnv1a(normalized);
-}
-
 export async function initEngine(app: App, inrefens: boolean): Promise<void> {
     if (engineInitialized) return;
     inrefensEnabled = inrefens;
-    const generatedHash = await checkHealth(app);
-    await wasmModule.default({ module_or_path: wasmBinary });
-    engineInitialized = true;
-    const engine = new wasmModule.TravertureEngine('en', 'en', 'full', false, inrefensEnabled);
-    if (!engine.verify_integrity(generatedHash)) {
-        engineInitialized = false;
-        throw new Error('Integrity check FAILED!');
+
+    const configDir = app.vault.configDir;
+    const mainJsText = await app.vault.adapter.read(`${configDir}/plugins/conversum/main.js`);
+    const start = mainJsText.indexOf(WASM_START);
+    if (start === -1) throw new Error('engine: WASM-START marker not found');
+    const end = mainJsText.indexOf(WASM_END, start);
+    if (end === -1) throw new Error('engine: WASM-END marker not found');
+    const stripped = mainJsText.slice(0, start) + mainJsText.slice(end + WASM_END.length);
+    const bytes = new TextEncoder().encode(stripped);
+    let h = H_START;
+    for (let i = 0; i < bytes.length; i++) {
+        h ^= bytes[i];
+        h = Math.imul(h, H_END) >>> 0;
     }
-    enginePool.set(getEngineKey('en', 'full'), engine);
+    engineId = h >>> 0;
+
+    const wsIdx = wasmBinary.indexOf(WASM_START);
+    const weIdx = wasmBinary.indexOf(WASM_END, wsIdx);
+    if (wsIdx === -1 || weIdx === -1) throw new Error('engine: wasm markers not found in bundle');
+    const b64 = wasmBinary.slice(wsIdx + WASM_START.length, weIdx);
+    const wasmBin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    await wasmModule.default({ module_or_path: wasmBin });
+    engineInitialized = true;
+
+    try {
+        const probe = new wasmModule.TravertureEngine(
+            'en', 'en', 'full', false, inrefensEnabled, engineId
+        );
+        enginePool.set(getEngineKey('en', 'full'), probe);
+    } catch (e) {
+        engineInitialized = false;
+        throw e;
+    }
 }
 
 function getOrCreateEngine(
@@ -78,7 +73,7 @@ function getOrCreateEngine(
         return enginePool.get(key)!;
     }
     try {
-        const engine = new wasmModule.TravertureEngine(language, language, format, false, inrefensEnabled);
+        const engine = new wasmModule.TravertureEngine(language, language, format, false, inrefensEnabled, engineId);
         enginePool.set(key, engine);
         return engine;
     } catch {
@@ -195,7 +190,7 @@ export function getAvailableLanguages(): EngineLanguageInfo[] {
     if (!engineInitialized) {
         return [];
     }
-    
+
     try {
         const json = wasmModule.TravertureEngine.get_available_languages();
         const parsed = JSON.parse(json) as Array<{
