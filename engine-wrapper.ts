@@ -2,7 +2,6 @@
 
 // @ts-ignore
 import * as wasmModuleUntyped from './engine.js';
-// @ts-ignore
 import wasmBinary from './engine_bg.wasm';
 import { App } from 'obsidian';
 import { TravertureEngineInstance, TravertureEngineModule, NameFormat, ParsedReference } from './types';
