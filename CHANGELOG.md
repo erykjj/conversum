@@ -4,7 +4,11 @@
 
 ### Added
 
+- Added a refresh button to the concordance table
+
 ### Changed
+
+- Optimized indexing for many files (slower but less disruptive)
 
 ### Fixed
 
