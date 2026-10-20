@@ -16,6 +16,7 @@ export class ConcordanceView extends ItemView {
     private resultsContainer: HTMLElement | null = null;
     private searchTimeout: number | null = null;
     private totalRefs = 0;
+    private isRefreshing = false;
 
     constructor(leaf: WorkspaceLeaf, plugin: ConversumPlugin) {
         super(leaf);
@@ -123,6 +124,22 @@ export class ConcordanceView extends ItemView {
         exportBtn.addEventListener('click', () => {
             void this.plugin.exportConcordance();
         });
+        const refreshBtn = topRow.createEl('button', {
+            cls: 'conversum-toolbar-btn'
+        });
+        refreshBtn.setAttribute('data-refresh', '1');
+        setIcon(refreshBtn, 'refresh-cw');
+        if (this.plugin.isRebuildInProgress()) {
+            refreshBtn.setAttribute('disabled', 'true');
+            refreshBtn.setAttribute('title', 'Index rebuild in progress');
+            refreshBtn.setAttribute('aria-label', 'Index rebuild in progress');
+        } else {
+            refreshBtn.setAttribute('title', 'Refresh from vault');
+            refreshBtn.setAttribute('aria-label', 'Refresh from vault');
+        }
+        refreshBtn.addEventListener('click', () => {
+            void this.handleRefreshClick();
+        });
         const collapseBtn = topRow.createEl('button', {
             text: '▲',
             cls: 'conversum-toolbar-btn'
@@ -134,6 +151,44 @@ export class ConcordanceView extends ItemView {
         topRow.createDiv({ cls: 'conversum-spacer' });
         this.resultsContainer = this.container.createDiv({ cls: 'conversum-results' });
         this.renderResults();
+    }
+
+    private async handleRefreshClick(): Promise<void> {
+        if (this.isRefreshing) return;
+        if (this.plugin.isRebuildInProgress()) return;
+        const indexer = this.plugin.indexer;
+        if (!indexer) return;
+
+        this.isRefreshing = true;
+
+        const btn = this.container.querySelector(
+            '.conversum-toolbar-btn[data-refresh="1"]'
+        ) as HTMLButtonElement | null;
+        if (btn) {
+            btn.setAttribute('disabled', 'true');
+            btn.setAttribute('title', 'Refreshing…');
+            btn.setAttribute('aria-label', 'Refreshing…');
+            const iconEl = btn.querySelector('svg');
+            if (iconEl) iconEl.addClass('conversum-spin');
+        }
+
+        const MIN_SPIN_MS = 150;
+        const started = Date.now();
+
+        try {
+            await indexer.rescanForChanges();
+        } catch (e) {
+            console.error('con[VER]sum: refresh failed', e);
+        }
+
+        const elapsed = Date.now() - started;
+        const remaining = MIN_SPIN_MS - elapsed;
+        if (remaining > 0) {
+            await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
+        }
+
+        this.isRefreshing = false;
+        this.render();
     }
 
     renderResults(): void {
