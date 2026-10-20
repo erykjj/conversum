@@ -104,6 +104,16 @@
     background: var(--background-modifier-hover);
 }
 
+.conversum-toolbar-btn .svg-icon.conversum-spin {
+    animation: conversum-spin 1s linear infinite;
+    transform-origin: center;
+    transform-box: fill-box;
+}
+@keyframes conversum-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
 .conversum-results {
     flex: 1;
     overflow-y: auto;
