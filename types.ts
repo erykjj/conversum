@@ -36,7 +36,8 @@ export interface ReferenceIndexEntry {
 }
 
 export interface FileCacheEntry {
-    hash: string;
+    contentHash: string;
+    size: number;
     references: string[];
     lastModified: number;
 }

@@ -14,6 +14,61 @@ export function getStartBcvFromKey(key: string): string {
     return key.split('-')[0];
 }
 
+// ============================================================
+// CONTENT HASH (FNV-1a 64-bit as two 32-bit passes)
+// ============================================================
+
+const FNV1A_OFFSET_A = 2166136261;
+const FNV1A_OFFSET_B = 3339675911;
+const FNV1A_PRIME = 16777619;
+
+function fnv1a32(data: Uint8Array, offsetBasis: number): number {
+    let h = offsetBasis >>> 0;
+    for (let i = 0; i < data.length; i++) {
+        h ^= data[i];
+        h = Math.imul(h, FNV1A_PRIME) >>> 0;
+    }
+    return h >>> 0;
+}
+
+function hashContent(text: string): string {
+    const bytes = new TextEncoder().encode(text);
+    const h1 = fnv1a32(bytes, FNV1A_OFFSET_A);
+    const h2 = fnv1a32(bytes, FNV1A_OFFSET_B);
+    return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+}
+
+// ============================================================
+// IDLE YIELD
+// ============================================================
+
+interface IdleDeadlineLike {
+    readonly didTimeout: boolean;
+    timeRemaining(): number;
+}
+
+interface WindowWithIdle {
+    requestIdleCallback?: (
+        cb: (deadline: IdleDeadlineLike) => void,
+        opts?: { timeout?: number }
+    ) => number;
+}
+
+function idleYield(): Promise<void> {
+    return new Promise<void>((resolve) => {
+        const w = window as unknown as WindowWithIdle;
+        if (typeof w.requestIdleCallback === 'function') {
+            w.requestIdleCallback(() => resolve(), { timeout: 200 });
+        } else {
+            window.setTimeout(resolve, 0);
+        }
+    });
+}
+
+// ============================================================
+// INTERFACES
+// ============================================================
+
 interface FileReference {
     startBcv: string;
     endBcv: string;
@@ -27,6 +82,19 @@ interface FileReference {
 interface FrontmatterData {
     [key: string]: string;
 }
+
+// Tunables
+const REBUILD_CHUNK_SIZE = 1;
+const PROGRESS_INTERVAL_MS = 200;
+const FORMAT_BATCH_SIZE = 50;
+const FORMAT_BATCH_DELAY_MS = 100;
+// Files larger than this (bytes) are parsed paragraph-by-paragraph instead of
+// whole, so a single huge note cannot monopolize the main thread.
+const LARGE_FILE_BYTES = 24_000;
+// Soft throttle: if the previous chunk took longer than CHUNK_BUDGET_MS,
+// wait at least MIN_MS_BETWEEN_CHUNKS before starting the next chunk.
+const CHUNK_BUDGET_MS = 5;
+const MIN_MS_BETWEEN_CHUNKS = 500;
 
 export class ScriptureIndexer {
     private vault: Vault;
@@ -50,8 +118,8 @@ export class ScriptureIndexer {
     private isFormatting = false;
     private formattingAbortRequested = false;
     private formattingTimeout: number | null = null;
-    private formattingBatchSize = 50;
-    private formattingDelayMs = 200;
+    private formattingBatchSize = FORMAT_BATCH_SIZE;
+    private formattingDelayMs = FORMAT_BATCH_DELAY_MS;
 
     constructor(
         vault: Vault,
@@ -147,7 +215,7 @@ export class ScriptureIndexer {
         return content;
     }
 
-    private parseFileReferences(content: string): FileReference[] {
+    private parseFileReferences(content: string, size: number): FileReference[] {
         const result: FileReference[] = [];
         if (!isEngineReady()) {
             return result;
@@ -160,49 +228,61 @@ export class ScriptureIndexer {
             fileLanguage = frontmatterLang;
         }
 
-        let processedContent = contentWithoutFrontmatter;
-        if (processedContent.includes('{{')) {
-            processedContent = processedContent.replace(/\{\{(.+?)\}\}/g, (_match, inner: string) => {
-                const cleaned = inner.replace(/\*\*/g, '').replace(/\*/g, '');
-                return '⟪⟪' + cleaned + '⟫⟫';
-            });
+        const collect = (text: string): void => {
+            let processedContent = text;
+            if (processedContent.includes('{{')) {
+                processedContent = processedContent.replace(/\{\{(.+?)\}\}/g, (_match, inner: string) => {
+                    const cleaned = inner.replace(/\*\*/g, '').replace(/\*/g, '');
+                    return '⟪⟪' + cleaned + '⟫⟫';
+                });
+            }
+            try {
+                const parsed = parseReferences(
+                    processedContent,
+                    fileLanguage,
+                    this.outputLanguage,
+                    this.nameFormat
+                );
+                if (!parsed) return;
+                for (const entry of parsed) {
+                    const ranges = entry[3];
+                    if (!ranges || ranges.length === 0) continue;
+                    for (const range of ranges) {
+                        const startBcv = range[0];
+                        const endBcv = range[1];
+                        if (!startBcv || startBcv.length < 8) continue;
+                        if (!endBcv || endBcv.length < 8) continue;
+                        const bookId = parseInt(startBcv.substring(0, 2));
+                        const chapter = parseInt(startBcv.substring(2, 5));
+                        const startVerse = parseInt(startBcv.substring(5, 8));
+                        const endVerse = parseInt(endBcv.substring(5, 8));
+                        const endChapter = parseInt(endBcv.substring(2, 5));
+                        result.push({
+                            startBcv,
+                            endBcv,
+                            bookId,
+                            chapter,
+                            startVerse,
+                            endVerse,
+                            endChapter
+                        });
+                    }
+                }
+            } catch {
+                // Parsing failed - no references found in this part
+            }
+        };
+
+        if (size > LARGE_FILE_BYTES) {
+            const paragraphs = contentWithoutFrontmatter.split(/\n\s*\n/);
+            for (const paragraph of paragraphs) {
+                if (paragraph.length === 0) continue;
+                collect(paragraph);
+            }
+        } else {
+            collect(contentWithoutFrontmatter);
         }
 
-        try {
-            const parsed = parseReferences(
-                processedContent,
-                fileLanguage,
-                this.outputLanguage,
-                this.nameFormat
-            );
-            if (!parsed) return result;
-            for (const entry of parsed) {
-                const ranges = entry[3];
-                if (!ranges || ranges.length === 0) continue;
-                for (const range of ranges) {
-                    const startBcv = range[0];
-                    const endBcv = range[1];
-                    if (!startBcv || startBcv.length < 8) continue;
-                    if (!endBcv || endBcv.length < 8) continue;
-                    const bookId = parseInt(startBcv.substring(0, 2));
-                    const chapter = parseInt(startBcv.substring(2, 5));
-                    const startVerse = parseInt(startBcv.substring(5, 8));
-                    const endVerse = parseInt(endBcv.substring(5, 8));
-                    const endChapter = parseInt(endBcv.substring(2, 5));
-                    result.push({ 
-                        startBcv, 
-                        endBcv, 
-                        bookId, 
-                        chapter, 
-                        startVerse,
-                        endVerse,
-                        endChapter
-                    });
-                }
-            }
-        } catch {
-            // Parsing failed - no references found
-        }
         return result;
     }
 
@@ -333,46 +413,82 @@ export class ScriptureIndexer {
         this.progress.processedFiles = 0;
         this.progress.referencesFound = 0;
         this.progress.uniqueReferences = 0;
+        this.progress.currentFile = undefined;
         try {
             this.plugin.settings.rebuildStatus = 'in_progress';
             await this.plugin.saveSettings();
         } catch {
             // Save failed - continue anyway
         }
+
+        let lastProgressAt = 0;
+        const emitProgress = (force: boolean) => {
+            if (!onProgress) return;
+            const now = Date.now();
+            if (!force && now - lastProgressAt < PROGRESS_INTERVAL_MS) return;
+            lastProgressAt = now;
+            onProgress(this.progress);
+        };
+
         try {
             const files = this.vault.getMarkdownFiles();
             const filteredFiles = files.filter((f: TFile) => !this.isExcluded(f.path));
             this.progress.totalFiles = filteredFiles.length;
             this.progress.status = 'processing';
-            onProgress?.(this.progress);
+            emitProgress(true);
+
+            const referenceMap = new Map<string, ReferenceIndexEntry>();
+            const fileCache: { [filePath: string]: FileCacheEntry } = {};
+            const uniqueRefs = new Set<string>();
+            let processedCount = 0;
+
             this.db.beginTransaction();
             try {
                 this.db.clearAllData();
                 const newData = this.getEmptyData();
                 this.data = newData;
                 this.db.setData(newData);
-                await this.db.commitTransaction();
             } catch (e) {
                 this.db.rollbackTransaction();
                 throw e;
             }
-            this.db.beginTransaction();
-            const referenceMap = new Map<string, ReferenceIndexEntry>();
-            const fileCache: { [filePath: string]: FileCacheEntry } = {};
-            const uniqueRefs = new Set<string>();
-            let processedCount = 0;
-            for (const file of filteredFiles) {
+
+            let lastChunkStart = 0;
+            for (let i = 0; i < filteredFiles.length; i++) {
                 if (this.abortRequested) {
                     this.db.rollbackTransaction();
                     this.progress.status = 'idle';
+                    this.progress.currentFile = undefined;
                     this.isIndexing = false;
                     return this.data;
                 }
-                this.progress.currentFile = file.path;
+
+                if (i > 0 && i % REBUILD_CHUNK_SIZE === 0) {
+                    const chunkDuration = Date.now() - lastChunkStart;
+                    if (chunkDuration > CHUNK_BUDGET_MS) {
+                        const elapsed = Date.now() - lastChunkStart;
+                        const wait = Math.max(0, MIN_MS_BETWEEN_CHUNKS - elapsed);
+                        if (wait > 0) {
+                            await new Promise<void>((resolve) => window.setTimeout(resolve, wait));
+                        }
+                    }
+                    await idleYield();
+                    lastChunkStart = Date.now();
+                } else if (i === 0) {
+                    lastChunkStart = Date.now();
+                }
+
+                const file = filteredFiles[i];
+                if (file.stat.size > LARGE_FILE_BYTES) {
+                    await idleYield();
+                }
+
                 try {
                     const content = await this.vault.read(file);
+                    const contentHash = hashContent(content);
+                    const size = file.stat.size;
                     const fileLanguage = this.getFileLanguage(content);
-                    const occurrences = this.parseFileReferences(content);
+                    const occurrences = this.parseFileReferences(content, size);
                     const fileRefs: string[] = [];
                     if (occurrences.length > 0) {
                         for (const occ of occurrences) {
@@ -418,9 +534,10 @@ export class ScriptureIndexer {
                             }
                         }
                     }
-                    this.db.upsertFileIndex(file.path, file.stat.mtime, fileLanguage);
+                    this.db.upsertFileIndex(file.path, file.stat.mtime, size, contentHash, fileLanguage);
                     fileCache[file.path] = {
-                        hash: '',
+                        contentHash,
+                        size,
                         references: fileRefs,
                         lastModified: file.stat.mtime
                     };
@@ -430,8 +547,11 @@ export class ScriptureIndexer {
                 processedCount++;
                 this.progress.processedFiles = processedCount;
                 this.progress.uniqueReferences = uniqueRefs.size;
-                onProgress?.(this.progress);
+                emitProgress(false);
             }
+
+            this.db.cleanupOrphans();
+
             const newData = this.getEmptyData();
             newData.references = Object.fromEntries(referenceMap);
             newData.fileCache = fileCache;
@@ -439,10 +559,9 @@ export class ScriptureIndexer {
             newData.version = this.pluginVersion;
             this.data = newData;
             this.db.setData(newData);
+
             await this.db.commitTransaction();
-            this.db.beginTransaction();
-            this.db.cleanupOrphans();
-            await this.db.commitTransaction();
+
             try {
                 this.plugin.settings.rebuildStatus = 'complete';
                 await this.plugin.saveSettings();
@@ -451,7 +570,7 @@ export class ScriptureIndexer {
             }
             this.progress.status = 'complete';
             this.progress.currentFile = undefined;
-            onProgress?.(this.progress);
+            emitProgress(true);
             this.startBackgroundFormatting();
             return this.data;
         } catch (e) {
@@ -476,9 +595,26 @@ export class ScriptureIndexer {
             return;
         }
         try {
-            const content = await this.vault.read(file);
             const cached = this.data.fileCache[file.path];
-            if (cached && cached.lastModified === file.stat.mtime) {
+            // Fast path: mtime + size both match → definitely unchanged
+            if (cached && cached.lastModified === file.stat.mtime && cached.size === file.stat.size) {
+                return;
+            }
+            const content = await this.vault.read(file);
+            const contentHash = hashContent(content);
+            if (cached && cached.size === file.stat.size && cached.contentHash && cached.contentHash === contentHash) {
+                cached.lastModified = file.stat.mtime;
+                this.data.lastUpdated = Date.now();
+                this.db.beginTransaction();
+                try {
+                    const fileLanguage = this.getFileLanguage(content);
+                    this.db.upsertFileIndex(file.path, file.stat.mtime, file.stat.size, contentHash, fileLanguage);
+                    this.db.setData(this.data);
+                    await this.db.commitTransaction();
+                } catch (e) {
+                    this.db.rollbackTransaction();
+                    throw e;
+                }
                 return;
             }
             const fileLanguage = this.getFileLanguage(content);
@@ -501,7 +637,7 @@ export class ScriptureIndexer {
                     }
                 }
                 this.db.deleteFileReferences(file.path);
-                const occurrences = this.parseFileReferences(content);
+                const occurrences = this.parseFileReferences(content, file.stat.size);
                 const fileRefs: string[] = [];
                 for (const occ of occurrences) {
                     const key = getRangeKey(occ.startBcv, occ.endBcv);
@@ -542,9 +678,10 @@ export class ScriptureIndexer {
                         };
                     }
                 }
-                this.db.upsertFileIndex(file.path, file.stat.mtime, fileLanguage);
+                this.db.upsertFileIndex(file.path, file.stat.mtime, file.stat.size, contentHash, fileLanguage);
                 this.data.fileCache[file.path] = {
-                    hash: '',
+                    contentHash,
+                    size: file.stat.size,
                     references: fileRefs,
                     lastModified: file.stat.mtime
                 };
@@ -606,22 +743,60 @@ export class ScriptureIndexer {
         }
     }
 
-    async rebuildAllHTML(): Promise<void> {
-        const rangeKeys = this.db.getAllRangeKeys();
-        this.db.beginTransaction();
-        try {
-            for (const rangeKey of rangeKeys) {
-                try {
-                    this.db.getFormatted(rangeKey);
-                } catch {
-                    // Skip
-                }
+    // ============================================================
+    // POST-REBUILD CATCH-UP / ON-DEMAND RESCAN
+    // ============================================================
+
+    async catchUpAfterRebuild(): Promise<number> {
+        if (this.isIndexing) return 0;
+        const allFiles = this.vault.getMarkdownFiles();
+        const cache = this.data.fileCache;
+
+        const toUpdate: TFile[] = [];
+        for (const file of allFiles) {
+            if (this.isExcluded(file.path)) continue;
+            const cached = cache[file.path];
+            if (!cached) {
+                toUpdate.push(file);
+            } else if (cached.lastModified !== file.stat.mtime || cached.size !== file.stat.size) {
+                toUpdate.push(file);
             }
-            await this.db.commitTransaction();
-        } catch (e) {
-            this.db.rollbackTransaction();
-            throw e;
         }
+
+        const vaultPaths = new Set(allFiles.map(f => f.path));
+        const toRemove: string[] = [];
+        for (const cachedPath of Object.keys(cache)) {
+            if (!vaultPaths.has(cachedPath)) {
+                toRemove.push(cachedPath);
+            }
+        }
+
+        let touched = 0;
+        for (const file of toUpdate) {
+            try {
+                await this.updateFile(file, true);
+                touched++;
+            } catch {
+                // Skip individual failures
+            }
+        }
+        for (const path of toRemove) {
+            try {
+                await this.removeFile(path);
+                touched++;
+            } catch {
+                // Skip individual failures
+            }
+        }
+
+        if (touched > 0) {
+            this.startBackgroundFormatting();
+        }
+        return touched;
+    }
+
+    async rescanForChanges(): Promise<number> {
+        return this.catchUpAfterRebuild();
     }
 
     // ============================================================

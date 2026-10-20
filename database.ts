@@ -55,6 +55,7 @@ export class IndexDatabase {
             this.db = dbData ? new SQL.Database(dbData) : new SQL.Database();
             this.db.run('PRAGMA foreign_keys = ON;');
             this.createTables();
+            this.migrateSchema();
             this.cleanupOrphans();
             await this.loadDataFromDB();
             this.initialized = true;
@@ -120,6 +121,28 @@ export class IndexDatabase {
         `);
     }
 
+    private migrateSchema(): void {
+        if (!this.db) return;
+        const columns = new Set<string>();
+        try {
+            const result = this.db.exec(`PRAGMA table_info(file_index)`);
+            if (result.length > 0) {
+                const nameIdx = result[0].columns.indexOf('name');
+                for (const row of result[0].values) {
+                    columns.add(row[nameIdx] as string);
+                }
+            }
+        } catch (e) {
+            return;
+        }
+        if (!columns.has('size')) {
+            this.db.run('ALTER TABLE file_index ADD COLUMN size INTEGER');
+        }
+        if (!columns.has('content_hash')) {
+            this.db.run('ALTER TABLE file_index ADD COLUMN content_hash TEXT');
+        }
+    }
+
     private async loadDataFromDB(): Promise<void> {
         if (!this.db) return;
         try {
@@ -141,13 +164,20 @@ export class IndexDatabase {
             if (fileResult.length > 0) {
                 const columns = fileResult[0].columns;
                 const rows = fileResult[0].values;
+                const pathIdx = columns.indexOf('file_path');
+                const mtimeIdx = columns.indexOf('last_modified');
+                const sizeIdx = columns.indexOf('size');
+                const hashIdx = columns.indexOf('content_hash');
                 for (const row of rows) {
-                    const filePath = row[columns.indexOf('file_path')] as string;
-                    const lastModified = row[columns.indexOf('last_modified')] as number;
-                    this.data.fileCache[filePath] = { 
-                        hash: '',
+                    const filePath = row[pathIdx] as string;
+                    const lastModified = row[mtimeIdx] as number;
+                    const size = sizeIdx >= 0 ? (row[sizeIdx] as number | null) : null;
+                    const contentHash = hashIdx >= 0 ? (row[hashIdx] as string | null) : null;
+                    this.data.fileCache[filePath] = {
+                        contentHash: contentHash || '',
+                        size: size ?? -1,
                         references: [],
-                        lastModified 
+                        lastModified
                     };
                 }
             }
@@ -215,9 +245,9 @@ export class IndexDatabase {
                     files.sort((a, b) => a.path.localeCompare(b.path));
                     data.entry.files = files;
                     data.entry.totalOccurrences = totalOccurrences;
-                    this.data.references[data.entry.startBcv + '-' + data.entry.endBcv] = data.entry;
+                    const key = data.entry.startBcv + '-' + data.entry.endBcv;
+                    this.data.references[key] = data.entry;
                     for (const filePath of data.filePaths) {
-                        const key = data.entry.startBcv + '-' + data.entry.endBcv;
                         if (this.data.fileCache[filePath]) {
                             if (!this.data.fileCache[filePath].references.includes(key)) {
                                 this.data.fileCache[filePath].references.push(key);
@@ -262,7 +292,6 @@ export class IndexDatabase {
     beginTransaction(): void {
         if (!this.db) return;
         if (this.inTransaction) {
-            console.warn('con[VER]sum: Transaction already in progress');
             return;
         }
         this.db.run('BEGIN TRANSACTION');
@@ -275,7 +304,6 @@ export class IndexDatabase {
             return;
         }
         if (!this.inTransaction) {
-            console.warn('con[VER]sum: No transaction to commit');
             return;
         }
         try {
@@ -295,7 +323,6 @@ export class IndexDatabase {
             return;
         }
         if (!this.inTransaction) {
-            console.warn('con[VER]sum: No transaction to rollback');
             return;
         }
         try {
@@ -480,15 +507,6 @@ export class IndexDatabase {
         return result[0].values[0][0] as number;
     }
 
-    getFormatted(rangeKey: string): string | null {
-        if (!this.db) return null;
-        const result = this.db.exec(`
-            SELECT formatted FROM ref_detail WHERE range_key = ?
-        `, [rangeKey]);
-        if (result.length === 0 || result[0].values.length === 0) return null;
-        return result[0].values[0][0] as string || null;
-    }
-
     // ============================================================
     // WRITE OPERATIONS
     // ============================================================
@@ -505,9 +523,6 @@ export class IndexDatabase {
         endChapter?: number
     ): void {
         if (!this.db) return;
-        if (!this.inTransaction) {
-            console.warn('con[VER]sum: insertOccurrence called outside transaction');
-        }
         const detailStmt = this.db.prepare(`
             INSERT OR IGNORE INTO ref_detail (
                 range_key, start_bcv, end_bcv, book_id, chapter,
@@ -533,24 +548,24 @@ export class IndexDatabase {
         occStmt.free();
     }
 
-    upsertFileIndex(filePath: string, lastModified: number, language: string | null): void {
+    upsertFileIndex(
+        filePath: string,
+        lastModified: number,
+        size: number,
+        contentHash: string,
+        language: string | null
+    ): void {
         if (!this.db) return;
-        if (!this.inTransaction) {
-            console.warn('con[VER]sum: upsertFileIndex called outside transaction');
-        }
         const stmt = this.db.prepare(`
-            INSERT OR REPLACE INTO file_index (file_path, last_modified, language)
-            VALUES (?, ?, ?)
+            INSERT OR REPLACE INTO file_index (file_path, last_modified, size, content_hash, language)
+            VALUES (?, ?, ?, ?, ?)
         `);
-        stmt.run([filePath, lastModified, language || null]);
+        stmt.run([filePath, lastModified, size, contentHash, language || null]);
         stmt.free();
     }
 
     deleteFileReferences(filePath: string): void {
         if (!this.db) return;
-        if (!this.inTransaction) {
-            console.warn('con[VER]sum: deleteFileReferences called outside transaction');
-        }
         const stmt = this.db.prepare(`
             DELETE FROM ref_occurrences WHERE file_path = ?
         `);
@@ -561,9 +576,6 @@ export class IndexDatabase {
 
     updateFormatted(rangeKey: string, formatted: string): void {
         if (!this.db) return;
-        if (!this.inTransaction) {
-            console.warn('con[VER]sum: updateFormatted called outside transaction');
-        }
         const stmt = this.db.prepare(`
             UPDATE ref_detail 
             SET formatted = ? 
@@ -604,9 +616,6 @@ export class IndexDatabase {
 
     clearAllData(): void {
         if (!this.db) return;
-        if (!this.inTransaction) {
-            console.warn('con[VER]sum: clearAllData called outside transaction');
-        }
         this.db.run('DELETE FROM ref_occurrences');
         this.db.run('DELETE FROM ref_detail');
         this.db.run('DELETE FROM file_index');
@@ -946,7 +955,6 @@ export class IndexDatabase {
                 try {
                     await this.commitTransaction();
                 } catch (e) {
-                    console.warn('con[VER]sum: Failed to commit transaction on close:', e);
                     this.rollbackTransaction();
                 }
             }

@@ -21,6 +21,7 @@ export default class ConversumPlugin extends Plugin {
     private fileWatcherEnabled = false;
     private relatedPopout: RelatedNotesPopout | null = null;
     private isStartupComplete = false;
+    private isRebuilding = false;
     public settingsTab: ConversumSettingTab | null = null;
 
     public getDatabase(): IndexDatabase | null {
@@ -100,6 +101,10 @@ export default class ConversumPlugin extends Plugin {
         return this.indexer?.isFormattingBusy() || false;
     }
 
+    public isRebuildInProgress(): boolean {
+        return this.isRebuilding;
+    }
+
     // ============================================================
     // STARTUP FLOW
     // ============================================================
@@ -174,7 +179,7 @@ export default class ConversumPlugin extends Plugin {
             const cached = fileCache[file.path];
             if (!cached) {
                 filesToIndex.push(file);
-            } else if (cached.lastModified !== file.stat.mtime) {
+            } else if (cached.lastModified !== file.stat.mtime || cached.size !== file.stat.size) {
                 filesToIndex.push(file);
             }
         }
@@ -294,27 +299,41 @@ export default class ConversumPlugin extends Plugin {
             return;
         }
 
-        const notice = new Notice('Building concordance index...', 0);
+        this.isRebuilding = true;
+        const notice = new Notice('Building concordance index… 0%', 0);
+        let lastPercent = -1;
 
         try {
             const progressCallback = (progress: IndexProgress) => {
                 const percent = progress.totalFiles > 0 
                     ? Math.round((progress.processedFiles / progress.totalFiles) * 100) 
                     : 0;
-                const fileInfo = progress.currentFile ? ` (${progress.currentFile})` : '';
-                notice.setMessage(`Indexing: ${percent}% (${progress.processedFiles}/${progress.totalFiles} files${fileInfo}, ${progress.uniqueReferences} unique refs)`);
+                if (percent !== lastPercent) {
+                    lastPercent = percent;
+                    notice.setMessage(`Building concordance index… ${percent}%`);
+                }
             };
 
             await this.indexer.rebuildIndex(progressCallback);
             const data = this.indexer.getData();
-            notice.setMessage(`Index complete: ${data ? Object.keys(data.references).length : 0} unique references`);
+            const refCount = data ? Object.keys(data.references).length : 0;
+            notice.setMessage(`Index complete: ${refCount} unique references`);
             window.setTimeout(() => notice.hide(), 2000);
+
+            try {
+                await this.indexer.catchUpAfterRebuild();
+            } catch (e) {
+                console.warn('con[VER]sum: post-rebuild catch-up failed:', e);
+            }
+
             this.refreshConcordanceView();
             this.refreshSettings();
 
         } catch {
             notice.setMessage('Index rebuild failed. See console for details.');
             window.setTimeout(() => notice.hide(), 3000);
+        } finally {
+            this.isRebuilding = false;
         }
     }
 
@@ -358,7 +377,7 @@ export default class ConversumPlugin extends Plugin {
     private scheduleIndexUpdate(file: TFile): void {
         if (!this.settings.autoIndex || !this.fileWatcherEnabled) return;
         if (!this.indexer) return;
-        if (this.indexer.isIndexingBusy()) return;
+        if (this.indexer.isIndexingBusy() || this.isRebuilding) return;
 
         for (const folder of this.settings.excludedFolders) {
             if (file.path.startsWith(folder + '/') || file.path === folder) {
@@ -372,7 +391,7 @@ export default class ConversumPlugin extends Plugin {
 
         this.rebuildTimeout = window.setTimeout(() => {
             this.rebuildTimeout = null;
-            if (!this.indexer || this.indexer.isIndexingBusy()) return;
+            if (!this.indexer || this.indexer.isIndexingBusy() || this.isRebuilding) return;
             void this.indexer.updateFile(file).then(() => {
                 this.refreshConcordanceView();
                 this.refreshSettings();
@@ -408,7 +427,7 @@ export default class ConversumPlugin extends Plugin {
         this.registerEvent(
             this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
                 if (file instanceof TFile && file.extension === 'md') {
-                    if (this.indexer && this.isStartupComplete) {
+                    if (this.indexer && this.isStartupComplete && !this.isRebuilding) {
                         void this.indexer.removeFile(oldPath);
                         this.scheduleIndexUpdate(file);
                     }
@@ -419,7 +438,7 @@ export default class ConversumPlugin extends Plugin {
         this.registerEvent(
             this.app.vault.on('delete', (file: TAbstractFile) => {
                 if (file instanceof TFile && file.extension === 'md') {
-                    if (this.indexer && this.isStartupComplete) {
+                    if (this.indexer && this.isStartupComplete && !this.isRebuilding) {
                         void this.indexer.removeFile(file.path);
                         this.refreshConcordanceView();
                         this.refreshSettings();
@@ -720,6 +739,7 @@ export default class ConversumPlugin extends Plugin {
     }
 
     public refreshConcordanceView(): void {
+        if (this.isRebuilding) return;
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CONVERSUM_CONCORDANCE);
         for (const leaf of leaves) {
             const view = leaf.view as ConcordanceView;
