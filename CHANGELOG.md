@@ -11,7 +11,7 @@
 ### Removed
 
 ____
-## [3.0.0] - 2026-10-20
+## [3.0.1] - 2026-10-20
 ### Added
 
 - Added a refresh button to the concordance table
@@ -101,7 +101,7 @@ ____
 - Initial *beta* release
 
 ____
-[3.0.0]:https://github.com/erykjj/conversum/releases/tag/3.0.0
+[3.0.1]:https://github.com/erykjj/conversum/releases/tag/3.0.1
 [2.0.0]:https://github.com/erykjj/conversum/releases/tag/2.0.0
 [1.6.0]:https://github.com/erykjj/conversum/releases/tag/1.6.0
 [1.5.2]:https://github.com/erykjj/conversum/releases/tag/1.5.2
