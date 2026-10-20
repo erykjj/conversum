@@ -161,9 +161,9 @@ export class ConcordanceView extends ItemView {
 
         this.isRefreshing = true;
 
-        const btn = this.container.querySelector(
+        const btn = this.container.querySelector<HTMLButtonElement>(
             '.conversum-toolbar-btn[data-refresh="1"]'
-        ) as HTMLButtonElement | null;
+        );
         if (btn) {
             btn.setAttribute('disabled', 'true');
             btn.setAttribute('title', 'Refreshing…');

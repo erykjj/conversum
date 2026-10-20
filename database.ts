@@ -132,7 +132,7 @@ export class IndexDatabase {
                     columns.add(row[nameIdx] as string);
                 }
             }
-        } catch (e) {
+        } catch {
             return;
         }
         if (!columns.has('size')) {
@@ -954,7 +954,7 @@ export class IndexDatabase {
             if (this.inTransaction) {
                 try {
                     await this.commitTransaction();
-                } catch (e) {
+                } catch {
                     this.rollbackTransaction();
                 }
             }
