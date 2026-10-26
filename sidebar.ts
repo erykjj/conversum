@@ -1,7 +1,7 @@
 // sidebar.ts
 
 import { ItemView, WorkspaceLeaf, TFile, Notice, setIcon } from 'obsidian';
-import { getBookName, decodeScriptures, isWholeBookReference } from './engine-wrapper';
+import { getBookName, decodeScriptures } from './engine-wrapper';
 import type ConversumPlugin from './main';
 import { VIEW_TYPE_CONVERSUM_CONCORDANCE, BookGroup, ChapterGroup, ReferenceGroup, ReferenceIndexEntry } from './types';
 
@@ -258,8 +258,7 @@ export class ConcordanceView extends ItemView {
                         files: filesArray,
                         expanded: true,
                         formattedText: displayText,
-                        _searchText: displayText,
-                        isWholeBook: isWholeBookReference(entry.startBcv, entry.endBcv)
+                        _searchText: displayText
                     };
                     referenceGroups.push(refGroup);
                     chapterTotalRefs++;
@@ -460,7 +459,7 @@ export class ConcordanceView extends ItemView {
 
     private createReferenceElement(ref: ReferenceGroup): HTMLElement {
         const refEl = this.container.createDiv();
-        refEl.className = ref.isWholeBook ? 'conversum-reference' : 'conversum-reference';
+        refEl.className = 'conversum-reference';
         const displayText = ref.formattedText || ref.referenceKey;
         refEl.createSpan({ cls: 'conversum-ref-text', text: displayText });
         refEl.createSpan({ cls: 'conversum-ref-separator', text: ' — ' });

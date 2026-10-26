@@ -82,7 +82,6 @@ export interface ReferenceGroup {
     expanded?: boolean;
     formattedText?: string;
     _searchText?: string;
-    isWholeBook?: boolean;
 }
 
 export interface FileRef {
