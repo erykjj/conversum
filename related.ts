@@ -12,7 +12,6 @@ interface FileOccurrence {
 export class RelatedNotesPopout {
     private plugin: ConversumPlugin;
     private popoutEl: HTMLElement | null = null;
-    private currentReference: string | null = null;
     private closeTimeout: number | null = null;
     private clickOutsideHandler: ((e: MouseEvent) => void) | null = null;
     private escapeHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -20,12 +19,6 @@ export class RelatedNotesPopout {
 
     constructor(plugin: ConversumPlugin) {
         this.plugin = plugin;
-    }
-
-    show(referenceKey: string, formatted: string, x: number, y: number): void {
-        this.forceClose();
-        this.currentReference = referenceKey;
-        this.render(formatted, x, y);
     }
 
     forceClose(): void {
@@ -48,7 +41,6 @@ export class RelatedNotesPopout {
         if (this.popoutEl) {
             this.popoutEl.remove();
             this.popoutEl = null;
-            this.currentReference = null;
         }
     }
 
@@ -94,13 +86,6 @@ export class RelatedNotesPopout {
 
         const popout = createDiv();
         popout.className = 'conversum-related-popout';
-        popout.setCssStyles?.({
-            position: 'fixed',
-            zIndex: '1000',
-            maxWidth: '500px',
-            minWidth: '200px',
-            width: 'auto'
-        });
 
         let left = x + 20;
         let top = y + 10;
@@ -201,46 +186,13 @@ export class RelatedNotesPopout {
         activeDocument.body.appendChild(popout);
     }
 
-    private render(formatted: string, x: number, y: number): void {
-        const data = this.plugin.indexer?.getData();
-        if (!data || !this.currentReference) return;
-
-        const refStartBcv = this.currentReference;
-        const refEndBcv = this.currentReference;
-        const refStartBook = parseInt(refStartBcv.substring(0, 2));
-        const refStartChapter = parseInt(refStartBcv.substring(2, 5));
-        const refStartVerse = parseInt(refStartBcv.substring(5, 8));
-        const refEndVerse = parseInt(refEndBcv.substring(5, 8));
-
-        const matchingEntries: ReferenceIndexEntry[] = [];
-        for (const entry of Object.values(data.references)) {
-            const entryStartBook = parseInt(entry.startBcv.substring(0, 2));
-            const entryStartChapter = parseInt(entry.startBcv.substring(2, 5));
-            const entryStartVerse = parseInt(entry.startBcv.substring(5, 8));
-            const entryEndVerse = parseInt(entry.endBcv.substring(5, 8));
-            const isContained = 
-                entryStartBook === refStartBook &&
-                entryStartChapter === refStartChapter &&
-                entryStartVerse <= refStartVerse &&
-                entryEndVerse >= refEndVerse;
-            if (isContained) {
-                matchingEntries.push(entry);
-            }
-        }
-
-        const fileOccurrences = this.buildFileOccurrences(matchingEntries);
-        this.buildPopout(formatted, fileOccurrences, x, y);
-    }
-
     showWithEntries(
-        referenceKey: string,
         formatted: string,
         entries: Array<[string, ReferenceIndexEntry]>,
         x: number,
         y: number
     ): void {
         this.forceClose();
-        this.currentReference = referenceKey;
         if (!entries || entries.length === 0) {
             new Notice(`No notes found for "${formatted}"`);
             return;
@@ -248,13 +200,5 @@ export class RelatedNotesPopout {
         const matchingEntries = entries.map(([, entry]) => entry);
         const fileOccurrences = this.buildFileOccurrences(matchingEntries);
         this.buildPopout(formatted, fileOccurrences, x, y);
-    }
-
-    isVisible(): boolean {
-        return this.popoutEl !== null;
-    }
-
-    getCurrentReference(): string | null {
-        return this.currentReference;
     }
 }

@@ -837,9 +837,9 @@ export default class ConversumPlugin extends Plugin {
         const firstEntry = matchingEntries[0][1];
         const formatted = this.formatReferenceOnTheFly(firstEntry);
         if (evt) {
-            this.relatedPopout?.showWithEntries(startBcv, formatted, matchingEntries, evt.clientX, evt.clientY);
+            this.relatedPopout?.showWithEntries(formatted, matchingEntries, evt.clientX, evt.clientY);
         } else {
-            this.relatedPopout?.showWithEntries(startBcv, formatted, matchingEntries, window.innerWidth / 2 - 150, window.innerHeight / 2 - 100);
+            this.relatedPopout?.showWithEntries(formatted, matchingEntries, window.innerWidth / 2 - 150, window.innerHeight / 2 - 100);
         }
     }
 
@@ -911,7 +911,7 @@ export default class ConversumPlugin extends Plugin {
             x = window.innerWidth / 2 - 150;
             y = window.innerHeight / 2 - 100;
         }
-        this.relatedPopout?.showWithEntries(startBcv, formatted, matchingEntries, x, y);
+        this.relatedPopout?.showWithEntries(formatted, matchingEntries, x, y);
     }
 
     // ============================================================
