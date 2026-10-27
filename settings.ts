@@ -12,50 +12,6 @@ export class ConversumSettingTab extends PluginSettingTab {
         this.plugin = plugin;
     }
 
-    async setControlValue(key: string, value: unknown): Promise<void> {
-        const s = this.plugin.settings as unknown as Record<string, unknown>;
-
-        switch (key) {
-            case 'sourceLanguage': {
-                s.sourceLanguage = value;
-                await this.plugin.saveSettings();
-                this.plugin.updateIndexerSettings();
-                await this.plugin.rebuildIndex();
-                new Notice(`Source language updated to ${String(value)}. Reindexing complete.`);
-                break;
-            }
-            case 'outputLanguage': {
-                s.outputLanguage = value;
-                await this.plugin.saveSettings();
-                this.plugin.updateIndexerSettings();
-                await this.plugin.reformatAllReferences();
-                new Notice(`Output language updated to ${String(value)}`);
-                break;
-            }
-            case 'nameFormat': {
-                s.nameFormat = value;
-                await this.plugin.saveSettings();
-                this.plugin.updateIndexerSettings();
-                await this.plugin.reformatAllReferences();
-                break;
-            }
-            case 'autoIndex': {
-                s.autoIndex = value;
-                await this.plugin.saveSettings();
-                if (value) {
-                    this.plugin.startFileWatcher();
-                    const data = this.plugin.indexer?.getData();
-                    if (!data || Object.keys(data.references).length === 0) {
-                        await this.plugin.rebuildIndex();
-                    }
-                } else {
-                    this.plugin.stopFileWatcher();
-                }
-                break;
-            }
-        }
-    }
-
     private renderStatus(el: HTMLElement): void {
         el.empty();
         const statusEl = el.createDiv({ cls: 'conversum-status' });
