@@ -12,7 +12,7 @@ See [the security and privacy notes](https://github.com/erykjj/conversum?tab=sec
 
 <mark>**Note on third-party forks**</mark>
 
-**This repository is the official source for con[VER]sum**. This project is MIT-licensed, so forking is permitted. Beware that unofficial forks and repackaged versions exist that add functionality, modify behavior, or change the plugin's scope. Those versions are not reviewed, endorsed, or supported by me, and *I cannot vouch for what they do with your data or your vault*.
+**https://github.com/erykjj/conversum is the official source for con[VER]sum**. This project is MIT-licensed, so forking is permitted. Beware that unofficial forks and repackaged versions exist that add functionality, modify behavior, or change the plugin's scope. Those versions are not reviewed, endorsed, or supported by me, and *I cannot vouch for what they do with your data or your vault*.
 
 ---
 
