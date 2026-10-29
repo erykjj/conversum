@@ -2,7 +2,7 @@
 
 import { Plugin, Notice, Menu, TFile, TAbstractFile, Editor, EditorPosition, MarkdownView, MenuItem } from 'obsidian';
 import { IndexDatabase } from './database';
-import { initEngine, isEngineReady, getAvailableLanguages, parseReferences, getBookName, decodeScriptures, prewarmEngines, clearEnginePool } from './engine-wrapper';
+import { initEngine, isEngineReady, parseReferences, getBookName, decodeScripturesSplit, prewarmEngines, clearEnginePool } from './engine-wrapper';
 import { ScriptureIndexer } from './indexer';
 import { RelatedNotesPopout } from './related';
 import { ConversumSettingTab } from './settings';
@@ -17,15 +17,21 @@ export default class ConversumPlugin extends Plugin {
     settings!: ConversumSettings;
     indexer: ScriptureIndexer | null = null;
     private db: IndexDatabase | null = null;
-    private rebuildTimeout: number | null = null;
     private fileWatcherEnabled = false;
     private relatedPopout: RelatedNotesPopout | null = null;
-    private isStartupComplete = false;
     private isRebuilding = false;
+    private pendingIndexFiles: Set<TFile> = new Set();
+    private pendingRemovalPaths: Set<string> = new Set();
+    private scanTickTimer: number | null = null;
+    private isProcessingBatch = false;
     public settingsTab: ConversumSettingTab | null = null;
 
     public getDatabase(): IndexDatabase | null {
         return this.db;
+    }
+
+    public isBatchInProgress(): boolean {
+        return this.isProcessingBatch;
     }
 
     async onload(): Promise<void> {
@@ -64,15 +70,10 @@ export default class ConversumPlugin extends Plugin {
         if (this.settings.autoIndex) {
             this.startFileWatcher();
         }
-        this.isStartupComplete = true;
     }
 
     onunload(): void {
         this.stopFileWatcher();
-        if (this.rebuildTimeout) {
-            window.clearTimeout(this.rebuildTimeout);
-            this.rebuildTimeout = null;
-        }
         if (this.relatedPopout) {
             this.relatedPopout.forceClose();
             this.relatedPopout = null;
@@ -91,14 +92,6 @@ export default class ConversumPlugin extends Plugin {
             const cleaned = inner.replace(/\*\*/g, '').replace(/\*/g, '');
             return '⟪⟪' + cleaned + '⟫⟫';
         });
-    }
-
-    public getUnformattedCount(): number {
-        return this.db?.getUnformattedCount() || 0;
-    }
-
-    public isFormattingBusy(): boolean {
-        return this.indexer?.isFormattingBusy() || false;
     }
 
     public isRebuildInProgress(): boolean {
@@ -162,6 +155,7 @@ export default class ConversumPlugin extends Plugin {
         if (!this.indexer || !this.db) {
             return;
         }
+        this.refreshSettings();
 
         const allFiles = this.app.vault.getMarkdownFiles();
         const data = this.db.getData();
@@ -188,6 +182,7 @@ export default class ConversumPlugin extends Plugin {
             for (const file of filesToIndex) {
                 try {
                     await this.indexer.updateFile(file, true);
+                    this.refreshSettings();
                 } catch {
                     // Skip failed file update
                 }
@@ -200,11 +195,6 @@ export default class ConversumPlugin extends Plugin {
             if (!vaultPaths.has(cachedPath)) {
                 await this.indexer.removeFile(cachedPath);
             }
-        }
-
-        const unformattedCount = this.db.getUnformattedCount();
-        if (unformattedCount > 0) {
-            this.indexer.startBackgroundFormatting();
         }
 
         this.refreshConcordanceView();
@@ -300,13 +290,15 @@ export default class ConversumPlugin extends Plugin {
         }
 
         this.isRebuilding = true;
+        this.refreshConcordanceView();
+        this.refreshSettings();
         const notice = new Notice('Building concordance index… 0%', 0);
         let lastPercent = -1;
 
         try {
             const progressCallback = (progress: IndexProgress) => {
-                const percent = progress.totalFiles > 0 
-                    ? Math.round((progress.processedFiles / progress.totalFiles) * 100) 
+                const percent = progress.totalFiles > 0
+                    ? Math.round((progress.processedFiles / progress.totalFiles) * 100)
                     : 0;
                 if (percent !== lastPercent) {
                     lastPercent = percent;
@@ -325,80 +317,148 @@ export default class ConversumPlugin extends Plugin {
             } catch (e) {
                 console.warn('con[VER]sum: post-rebuild catch-up failed:', e);
             }
-
-            this.refreshConcordanceView();
-            this.refreshSettings();
-
         } catch {
             notice.setMessage('Index rebuild failed. See console for details.');
             window.setTimeout(() => notice.hide(), 3000);
         } finally {
             this.isRebuilding = false;
+            this.refreshConcordanceView();
+            this.refreshSettings();
         }
     }
 
     private formatReferenceOnTheFly(entry: ReferenceIndexEntry): string {
         const ranges: Array<[string, string]> = [[entry.startBcv, entry.endBcv]];
-        const decoded = decodeScriptures(
+        const split = decodeScripturesSplit(
             ranges,
             this.settings.outputLanguage,
             this.settings.nameFormat
         );
-        return decoded && decoded.length > 0 && decoded[0] ? decoded[0] : `${entry.startBcv}-${entry.endBcv}`;
-    }
-
-    public async reformatAllReferences(): Promise<void> {
-        if (!this.indexer) return;
-        const data = this.indexer.getData();
-        if (!data || Object.keys(data.references).length === 0) return;
-        await this.indexer.clearFormatted();
-        this.indexer.startBackgroundFormatting();
-        this.refreshConcordanceView();
-        this.refreshSettings();
+        if (split && split.length > 0 && split[0]) {
+            const [bookName, suffix] = split[0];
+            return suffix ? `${bookName}\u00A0${suffix}` : bookName;
+        }
+        return `${entry.startBcv}-${entry.endBcv}`;
     }
 
     // ============================================================
     // FILE WATCHER
     // ============================================================
 
+    private getReferenceSnapshot(): { count: number; occurrences: number } {
+        const refs = this.indexer?.getData()?.references ?? {};
+        const count = Object.keys(refs).length;
+        let occurrences = 0;
+        for (const entry of Object.values(refs)) {
+            occurrences += entry.totalOccurrences;
+        }
+        return { count, occurrences };
+    }
+
     startFileWatcher(): void {
         if (this.fileWatcherEnabled) return;
         this.fileWatcherEnabled = true;
+        if (this.scanTickTimer === null) {
+            this.scanTickTimer = window.setInterval(() => {
+                void this.processPendingBatch();
+            }, 30_000);
+        }
+    }
+
+    public async startFileWatcherWithCatchUp(): Promise<void> {
+        if (this.fileWatcherEnabled) return;
+        this.startFileWatcher();
+        await this.runInitialCatchUp();
+    }
+
+    private async runInitialCatchUp(): Promise<void> {
+        if (!this.indexer || this.indexer.isBusy() || this.isRebuilding) return;
+        if (!isEngineReady()) return;
+
+        const before = this.getReferenceSnapshot();
+        this.refreshSettings();
+        try {
+            await this.indexer.rescanForChanges();
+            const after = this.getReferenceSnapshot();
+            if (after.count !== before.count || after.occurrences !== before.occurrences) {
+                this.notifyConcordanceViewsOfIndexUpdate();
+            }
+        } catch {
+            /* skip */
+        } finally {
+            this.refreshSettings();
+        }
     }
 
     stopFileWatcher(): void {
         this.fileWatcherEnabled = false;
-        if (this.rebuildTimeout) {
-            window.clearTimeout(this.rebuildTimeout);
-            this.rebuildTimeout = null;
+        if (this.scanTickTimer !== null) {
+            window.clearInterval(this.scanTickTimer);
+            this.scanTickTimer = null;
+        }
+        this.pendingIndexFiles.clear();
+        this.pendingRemovalPaths.clear();
+    }
+
+    private async processPendingBatch(): Promise<void> {
+        if (!this.settings.autoIndex || !this.fileWatcherEnabled) return;
+        if (!this.indexer || this.indexer.isBusy() || this.isRebuilding) return;
+        if (!isEngineReady()) return;
+        if (this.pendingIndexFiles.size === 0 && this.pendingRemovalPaths.size === 0) return;
+
+        const filesToProcess = Array.from(this.pendingIndexFiles);
+        const pathsToRemove = Array.from(this.pendingRemovalPaths);
+        this.pendingIndexFiles.clear();
+        this.pendingRemovalPaths.clear();
+
+        this.isProcessingBatch = true;
+        this.refreshSettings();
+
+        const before = this.getReferenceSnapshot();
+
+        for (const path of pathsToRemove) {
+            try { await this.indexer.removeFile(path); } catch { /* skip */ }
+        }
+        for (const file of filesToProcess) {
+            try { await this.indexer.updateFile(file); } catch { /* skip */ }
+        }
+
+        const after = this.getReferenceSnapshot();
+
+        this.isProcessingBatch = false;
+        this.refreshSettings();
+
+        if (after.count !== before.count || after.occurrences !== before.occurrences) {
+            this.notifyConcordanceViewsOfIndexUpdate();
+        }
+    }
+
+    public notifyConcordanceViewsOfIndexUpdate(): void {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CONVERSUM_CONCORDANCE);
+        for (const leaf of leaves) {
+            const view = leaf.view as ConcordanceView;
+            if (view && typeof view.notifyIndexUpdated === 'function') {
+                view.notifyIndexUpdated();
+            }
         }
     }
 
     private scheduleIndexUpdate(file: TFile): void {
         if (!this.settings.autoIndex || !this.fileWatcherEnabled) return;
         if (!this.indexer) return;
-        if (this.indexer.isIndexingBusy() || this.isRebuilding) return;
-
         for (const folder of this.settings.excludedFolders) {
-            if (file.path.startsWith(folder + '/') || file.path === folder) {
-                return;
-            }
+            if (file.path.startsWith(folder + '/') || file.path === folder) return;
         }
+        this.pendingIndexFiles.add(file);
+    }
 
-        if (this.rebuildTimeout) {
-            window.clearTimeout(this.rebuildTimeout);
+    private scheduleFileRemoval(path: string): void {
+        if (!this.settings.autoIndex || !this.fileWatcherEnabled) return;
+        if (!this.indexer) return;
+        for (const folder of this.settings.excludedFolders) {
+            if (path.startsWith(folder + '/') || path === folder) return;
         }
-
-        this.rebuildTimeout = window.setTimeout(() => {
-            this.rebuildTimeout = null;
-            if (!this.indexer || this.indexer.isIndexingBusy() || this.isRebuilding) return;
-            void this.indexer.updateFile(file).then(() => {
-                this.refreshConcordanceView();
-                this.refreshSettings();
-            }).catch(() => {
-                // Update failed - skip
-            });
-        }, 5000);
+        this.pendingRemovalPaths.add(path);
     }
 
     // ============================================================
@@ -417,9 +477,7 @@ export default class ConversumPlugin extends Plugin {
         this.registerEvent(
             this.app.vault.on('create', (file: TAbstractFile) => {
                 if (file instanceof TFile && file.extension === 'md') {
-                    if (this.app.workspace.layoutReady) {
-                        this.scheduleIndexUpdate(file);
-                    }
+                    this.scheduleIndexUpdate(file);
                 }
             })
         );
@@ -427,10 +485,8 @@ export default class ConversumPlugin extends Plugin {
         this.registerEvent(
             this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
                 if (file instanceof TFile && file.extension === 'md') {
-                    if (this.indexer && this.isStartupComplete && !this.isRebuilding) {
-                        void this.indexer.removeFile(oldPath);
-                        this.scheduleIndexUpdate(file);
-                    }
+                    this.scheduleFileRemoval(oldPath);
+                    this.scheduleIndexUpdate(file);
                 }
             })
         );
@@ -438,11 +494,7 @@ export default class ConversumPlugin extends Plugin {
         this.registerEvent(
             this.app.vault.on('delete', (file: TAbstractFile) => {
                 if (file instanceof TFile && file.extension === 'md') {
-                    if (this.indexer && this.isStartupComplete && !this.isRebuilding) {
-                        void this.indexer.removeFile(file.path);
-                        this.refreshConcordanceView();
-                        this.refreshSettings();
-                    }
+                    this.scheduleFileRemoval(file.path);
                 }
             })
         );
@@ -798,43 +850,20 @@ export default class ConversumPlugin extends Plugin {
     }
 
     private showRelatedNotesFromParsed(parsed: ParsedReference[], evt?: MouseEvent): void {
-        if (!parsed || parsed.length === 0) {
-            const activeFile = this.app.workspace.getActiveFile();
-            const sourceLang = this.getEffectiveSourceLanguage(activeFile);
-            const langName = getAvailableLanguages().find(l => l.language_code === sourceLang)?.language_name || sourceLang;
-            new Notice(`No scripture reference found in ${langName}`);
-            return;
-        }
-        
+        if (!parsed || parsed.length === 0) return;
         const ranges = parsed[0][3];
-        if (!ranges || ranges.length === 0) {
-            const activeFile = this.app.workspace.getActiveFile();
-            const sourceLang = this.getEffectiveSourceLanguage(activeFile);
-            const langName = getAvailableLanguages().find(l => l.language_code === sourceLang)?.language_name || sourceLang;
-            new Notice(`No valid reference found in ${langName}`);
-            return;
-        }
-
+        if (!ranges || ranges.length === 0) return;
         const startBcv = ranges[0][0];
         const endBcv = ranges[0][1];
-        if (!startBcv || startBcv.length < 8) {
-            const activeFile = this.app.workspace.getActiveFile();
-            const sourceLang = this.getEffectiveSourceLanguage(activeFile);
-            const langName = getAvailableLanguages().find(l => l.language_code === sourceLang)?.language_name || sourceLang;
-            new Notice(`Invalid reference format in ${langName}`);
-            return;
-        }
+        if (!startBcv || startBcv.length < 8) return;
 
         const matchingEntries = this.indexer?.findReferencesContainingRange(startBcv, endBcv) || [];
-        if (matchingEntries.length === 0) {
-            const activeFile = this.app.workspace.getActiveFile();
-            const sourceLang = this.getEffectiveSourceLanguage(activeFile);
-            const langName = getAvailableLanguages().find(l => l.language_code === sourceLang)?.language_name || sourceLang;
-            new Notice(`No notes found for this reference in ${langName}`);
+        const firstEntry = matchingEntries[0]?.[1];
+        if (!firstEntry) {
+            new Notice(`No notes found for "${parsed[0][0]}"`);
             return;
         }
 
-        const firstEntry = matchingEntries[0][1];
         const formatted = this.formatReferenceOnTheFly(firstEntry);
         if (evt) {
             this.relatedPopout?.showWithEntries(formatted, matchingEntries, evt.clientX, evt.clientY);
@@ -870,13 +899,11 @@ export default class ConversumPlugin extends Plugin {
 
         const { text: reference, startBcv, endBcv } = result;
         if (!startBcv || startBcv.length < 8) {
-            new Notice('Invalid reference format');
             return;
         }
         const matchingEntries = this.indexer.findReferencesContainingRange(startBcv, endBcv);
         if (matchingEntries.length === 0) {
-            const langName = getAvailableLanguages().find(l => l.code === sourceLang)?.vernacularName || sourceLang;
-            new Notice(`No notes found for "${reference}" in ${langName}`);
+            new Notice(`No notes found for "${reference}"`);
             return;
         }
 
@@ -976,22 +1003,15 @@ export default class ConversumPlugin extends Plugin {
                 return parseInt(aStart.substring(5, 8)) - parseInt(bStart.substring(5, 8));
             });
 
-            for (const [key, entry, formatted] of allRefs) {
-                let formattedRef: string;
-                if (formatted) {
-                    formattedRef = formatted;
-                } else {
-                    const ranges: Array<[string, string]> = [[
-                        `${String(entry.bcv.bookId).padStart(2, '0')}${String(entry.bcv.chapter).padStart(3, '0')}${String(entry.bcv.startVerse).padStart(3, '0')}`,
-                        `${String(entry.bcv.bookId).padStart(2, '0')}${String(entry.bcv.endChapter !== undefined && entry.bcv.endChapter !== entry.bcv.chapter ? entry.bcv.endChapter : entry.bcv.chapter).padStart(3, '0')}${String(entry.bcv.endVerse).padStart(3, '0')}`
-                    ]];
-                    const decoded = decodeScriptures(
-                        ranges,
-                        this.settings.outputLanguage,
-                        this.settings.nameFormat
-                    );
-                    formattedRef = decoded && decoded.length > 0 ? decoded[0] : `${entry.startBcv}-${entry.endBcv}`;
-                }
+            for (const [key, entry, suffix] of allRefs) {
+                const refBookName = getBookName(
+                    entry.bcv.bookId,
+                    this.settings.outputLanguage,
+                    this.settings.nameFormat
+                );
+                const formattedRef = suffix
+                    ? (refBookName ? `${refBookName}\u00A0${suffix}` : suffix)
+                    : refBookName;
 
                 const filesWithCounts = this.db?.getFilesWithCounts(key) || [];
                 const sortedFiles = filesWithCounts
