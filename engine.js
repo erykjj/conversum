@@ -30,6 +30,26 @@ export class TravertureEngine {
         }
     }
     /**
+     * Decode a JSON array of [startBCV, endBCV] pairs into a JSON array of
+     * [bookName, rest] pairs, e.g. [["Matthew","5:5"],["Matthew","5:6-7"]].
+     * @param {string} encoded_json
+     * @returns {string}
+     */
+    decode_scriptures_split(encoded_json) {
+        let deferred2_0;
+        let deferred2_1;
+        try {
+            const ptr0 = passStringToWasm0(encoded_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.travertureengine_decode_scriptures_split(this.__wbg_ptr, ptr0, len0);
+            deferred2_0 = ret[0];
+            deferred2_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+        }
+    }
+    /**
      * Returns the URL to fetch ASL video metadata for a given book and chapter
      * @param {number} book_number
      * @param {number} chapter

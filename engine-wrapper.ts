@@ -289,20 +289,20 @@ export function parseReferences(
     }
 }
 
-export function decodeScriptures(
+export function decodeScripturesSplit(
     ranges: Array<[string, string]>,
     outputLanguage: string,
     nameFormat: NameFormat = 'full'
-): string[] | null {
+): [string, string][] | null {
     const resolvedOutput = resolveLanguage(outputLanguage) || outputLanguage;
     const engine = getDecodingEngine(resolvedOutput, nameFormat);
     if (!engine) return null;
     try {
         const json = JSON.stringify(ranges);
-        const result = engine.decode_scriptures(json);
-        return JSON.parse(result) as string[];
+        const result = engine.decode_scriptures_split(json);
+        return JSON.parse(result) as [string, string][];
     } catch (e) {
-        console.error('con[VER]sum: Failed to decode scriptures:', e);
+        console.error('con[VER]sum: Failed to decode scriptures (split):', e);
         return null;
     }
 }
