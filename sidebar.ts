@@ -1,9 +1,9 @@
 // sidebar.ts
 
 import { ItemView, WorkspaceLeaf, TFile, Notice, setIcon } from 'obsidian';
-import { getBookName, decodeScriptures } from './engine-wrapper';
+import { getBookName } from './engine-wrapper';
 import type ConversumPlugin from './main';
-import { VIEW_TYPE_CONVERSUM_CONCORDANCE, BookGroup, ChapterGroup, ReferenceGroup, ReferenceIndexEntry } from './types';
+import { VIEW_TYPE_CONVERSUM_CONCORDANCE, BookGroup, ChapterGroup, ReferenceGroup } from './types';
 
 export class ConcordanceView extends ItemView {
     plugin: ConversumPlugin;
@@ -17,6 +17,7 @@ export class ConcordanceView extends ItemView {
     private searchTimeout: number | null = null;
     private totalRefs = 0;
     private isRefreshing = false;
+    private staleSince: number | null = null;
 
     constructor(leaf: WorkspaceLeaf, plugin: ConversumPlugin) {
         super(leaf);
@@ -64,19 +65,35 @@ export class ConcordanceView extends ItemView {
         }
     }
 
-    private formatReference(entry: ReferenceIndexEntry): string {
-        const ranges: Array<[string, string]> = [[entry.startBcv, entry.endBcv]];
-        const decoded = decodeScriptures(
-            ranges,
-            this.plugin.settings.outputLanguage,
-            this.plugin.settings.nameFormat
-        );
-        return decoded && decoded.length > 0 && decoded[0] ? decoded[0] : `${entry.startBcv}-${entry.endBcv}`;
+    notifyIndexUpdated(): void {
+        if (this.plugin.isRebuildInProgress()) return;
+        const data = this.plugin.indexer?.getData();
+        if (!data || data.lastUpdated === 0) return;
+        if (this.staleSince !== null) return;
+        this.staleSince = data.lastUpdated;
+        this.insertBannerIfNeeded();
+    }
+
+    private insertBannerIfNeeded(): void {
+        if (this.staleSince === null) return;
+        if (this.container.querySelector('.conversum-index-updated-banner')) return;
+        const banner = createDiv({ cls: 'conversum-index-updated-banner' });
+        banner.setText('Index updated — Refresh to reload.');
+        const toolbar = this.container.querySelector('.conversum-concordance-toolbar');
+        if (toolbar) toolbar.before(banner);
+    }
+
+    private renderAutoIndexBanner(): void {
+        if (this.plugin.settings.autoIndex) return;
+        const banner = this.container.createDiv({ cls: 'conversum-auto-index-banner' });
+        banner.setText('Auto-indexing is OFF. Data may be stale.');
     }
 
     render(): void {
+        this.staleSince = null;
         this.container.empty();
         this.container.addClass('conversum-concordance');
+        this.renderAutoIndexBanner();
         const toolbar = this.container.createDiv({ cls: 'conversum-concordance-toolbar' });
         const topRow = toolbar.createDiv({ cls: 'conversum-concordance-top-row' });
         const searchWrap = topRow.createDiv({ cls: 'conversum-search-wrap' });
@@ -155,10 +172,6 @@ export class ConcordanceView extends ItemView {
 
     private async handleRefreshClick(): Promise<void> {
         if (this.isRefreshing) return;
-        if (this.plugin.isRebuildInProgress()) return;
-        const indexer = this.plugin.indexer;
-        if (!indexer) return;
-
         this.isRefreshing = true;
 
         const btn = this.container.querySelector<HTMLButtonElement>(
@@ -173,12 +186,13 @@ export class ConcordanceView extends ItemView {
         }
 
         const MIN_SPIN_MS = 150;
+        const MAX_WAIT_MS = 5 * 60 * 1000;
         const started = Date.now();
+        const waitStart = Date.now();
 
-        try {
-            await indexer.rescanForChanges();
-        } catch (e) {
-            console.error('con[VER]sum: refresh failed', e);
+        while (this.plugin.indexer?.isBusy() || this.plugin.isRebuildInProgress()) {
+            if (Date.now() - waitStart > MAX_WAIT_MS) break;
+            await new Promise<void>(r => window.setTimeout(r, 100));
         }
 
         const elapsed = Date.now() - started;
@@ -189,19 +203,20 @@ export class ConcordanceView extends ItemView {
 
         this.isRefreshing = false;
         this.render();
+        this.plugin.refreshSettings();
     }
 
     renderResults(): void {
         if (!this.resultsContainer) return;
         this.resultsContainer.empty();
-        if (this.plugin.indexer?.isFormattingBusy()) {
-            const formattingEl = this.resultsContainer.createDiv({ cls: 'conversum-formatting' });
-            formattingEl.createEl('p', {
-                text: '⏳ Formatting references...',
+        if (this.plugin.isRebuildInProgress()) {
+            const indexingEl = this.resultsContainer.createDiv({ cls: 'conversum-formatting' });
+            indexingEl.createEl('p', {
+                text: 'Indexing...',
                 cls: 'conversum-formatting-message'
             });
-            formattingEl.createEl('p', {
-                text: 'The concordance will appear once all references are formatted.',
+            indexingEl.createEl('p', {
+                text: 'The concordance will appear once indexing completes.',
                 cls: 'conversum-formatting-submessage'
             });
             return;
@@ -214,10 +229,12 @@ export class ConcordanceView extends ItemView {
             });
             return;
         }
+        const outputLang = this.plugin.settings.outputLanguage;
+        const nameFormat = this.plugin.settings.nameFormat;
         const grouped = this.plugin.indexer!.getGroupedReferences();
         this.bookGroups = [];
         for (const [bookId, chapterMap] of grouped) {
-            const fullBookName = getBookName(bookId, this.plugin.settings.outputLanguage, 'full');
+            const fullBookName = getBookName(bookId, outputLang, 'full');
             const chapters: ChapterGroup[] = [];
             let bookTotalRefs = 0;
             let bookTotalFiles = new Set<string>();
@@ -236,13 +253,11 @@ export class ConcordanceView extends ItemView {
                     const bStart = b[0].split('-')[0];
                     return parseInt(aStart.substring(5, 8)) - parseInt(bStart.substring(5, 8));
                 });
-                for (const [key, entry, formatted] of sortedRefs) {
-                    let displayText: string;
-                    if (formatted) {
-                        displayText = formatted;
-                    } else {
-                        displayText = this.formatReference(entry);
-                    }
+                for (const [key, entry, suffix] of sortedRefs) {
+                    const bookName = getBookName(entry.bcv.bookId, outputLang, nameFormat);
+                    const displayText = suffix
+                        ? (bookName ? `${bookName}\u00A0${suffix}` : suffix)
+                        : bookName;
                     const filesWithCounts = this.plugin.getDatabase()?.getFilesWithCounts(key) || [];
                     const filesArray = filesWithCounts.map(f => ({
                         path: f.path,
@@ -646,23 +661,5 @@ export class ConcordanceView extends ItemView {
 
     refresh(): void {
         this.render();
-    }
-
-    showReference(referenceKey: string): void {
-        const startBcv = referenceKey.split('-')[0];
-        const bookId = parseInt(startBcv.substring(0, 2));
-        const chapter = parseInt(startBcv.substring(2, 5));
-        this.expandedBooks.add(bookId);
-        this.expandedChapters.add(`${bookId}:${chapter}`);
-        const data = this.plugin.indexer?.getData();
-        if (data && data.references[referenceKey]) {
-            const entry = data.references[referenceKey];
-            const formatted = this.formatReference(entry);
-            this.searchQuery = formatted;
-            if (this.searchInput) {
-                this.searchInput.value = this.searchQuery;
-            }
-        }
-        this.renderResults();
     }
 }
