@@ -6,13 +6,19 @@
 
 ### Changed
 
-- Updated engine to v5.1.0
-
 ### Fixed
 
 ### Removed
 
 ____
+## [4.0.0] - 2026-10-29
+### Changed
+
+- Updated engine to v6.0.0
+- Optimized indexing and rendering
+  - **NOTE** - the current database will need to be migrated, which **requires a full reindexing** on first run
+- Various other improvements and fixes
+
 ## [3.1.0] - 2026-10-20
 ### Added
 
@@ -103,6 +109,7 @@ ____
 - Initial *beta* release
 
 ____
+[4.0.0]:https://github.com/erykjj/conversum/releases/tag/4.0.0
 [3.1.0]:https://github.com/erykjj/conversum/releases/tag/3.1.0
 [2.0.0]:https://github.com/erykjj/conversum/releases/tag/2.0.0
 [1.6.0]:https://github.com/erykjj/conversum/releases/tag/1.6.0
