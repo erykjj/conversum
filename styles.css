@@ -14,6 +14,26 @@
     user-select: text;
 }
 
+.conversum-auto-index-banner {
+    padding: 4px 10px;
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+    color: var(--text-warning, #b45309);
+    background: var(--background-secondary, #f3f3f3);
+    border-left: 3px solid var(--text-warning, #b45309);
+    border-radius: 3px;
+}
+.conversum-index-updated-banner {
+    padding: 4px 10px;
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+    color: var(--text-accent, #4a6da7);
+    background: var(--background-secondary, #f3f3f3);
+    border-left: 3px solid var(--text-accent, #4a6da7);
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
 .conversum-concordance-toolbar {
     flex-shrink: 0;
     margin-bottom: 6px;
