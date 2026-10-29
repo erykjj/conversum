@@ -15,6 +15,13 @@ export class ConversumSettingTab extends PluginSettingTab {
     private renderStatus(el: HTMLElement): void {
         el.empty();
         const statusEl = el.createDiv({ cls: 'conversum-status' });
+
+        if (this.plugin.isBatchInProgress() || this.plugin.indexer?.isBusy() || this.plugin.isRebuildInProgress()) {
+                statusEl.createEl('p', { text: 'Indexing in progress...',
+                cls: 'conversum-status-item conversum-status-formatting',
+            });
+        }
+
         const data = this.plugin.indexer?.getData();
         const lastUpdated = data?.lastUpdated;
         const refCount = data ? Object.keys(data.references).length : 0;
@@ -34,25 +41,6 @@ export class ConversumSettingTab extends PluginSettingTab {
             text: `Unique references: ${refCount}`,
             cls: 'conversum-status-item',
         });
-
-        const isFormatting = this.plugin.isFormattingBusy();
-        const unformatted = this.plugin.getUnformattedCount();
-        if (isFormatting) {
-            statusEl.createEl('p', {
-                text: `Formatting in progress... (${unformatted} remaining)`,
-                cls: 'conversum-status-item conversum-status-formatting',
-            });
-        } else if (unformatted > 0) {
-            statusEl.createEl('p', {
-                text: `${unformatted} references need formatting`,
-                cls: 'conversum-status-item conversum-status-warning',
-            });
-        } else if (refCount > 0) {
-            statusEl.createEl('p', {
-                text: 'All references formatted',
-                cls: 'conversum-status-item conversum-status-ok',
-            });
-        }
     }
 
     private renderExcludedFolders(setting: import('obsidian').Setting): void {
@@ -68,7 +56,7 @@ export class ConversumSettingTab extends PluginSettingTab {
                 await this.plugin.saveSettings();
                 this.plugin.updateIndexerSettings();
                 if (this.plugin.settings.autoIndex) {
-                    await this.plugin.rebuildIndex();
+                    void this.plugin.rebuildIndex();
                 }
             });
         });
@@ -108,33 +96,59 @@ export class ConversumSettingTab extends PluginSettingTab {
                 items: [
                     {
                         name: 'Source language',
-                        desc: 'Language of the scripture references in your notes. Changing this will force a full reindex.',
-                        control: {
-                            type: 'dropdown',
-                            key: 'sourceLanguage',
-                            options: langOptions,
+                        desc: 'Language of the scripture references in your notes. Changing this forces a full reindex.',
+                        render: (setting) => {
+                            setting.addDropdown((dropdown) => {
+                                for (const [code, label] of Object.entries(langOptions)) {
+                                    dropdown.addOption(code, label);
+                                }
+                                dropdown
+                                    .setValue(this.plugin.settings.sourceLanguage)
+                                    .onChange(async (value) => {
+                                        this.plugin.settings.sourceLanguage = value;
+                                        await this.plugin.saveSettings();
+                                        this.plugin.updateIndexerSettings();
+                                        void this.plugin.rebuildIndex();
+                                    });
+                            });
                         },
                     },
                     {
                         name: 'Output language',
                         desc: 'Language for displaying book names and references',
-                        control: {
-                            type: 'dropdown',
-                            key: 'outputLanguage',
-                            options: langOptions,
+                        render: (setting) => {
+                            setting.addDropdown((dropdown) => {
+                                for (const [code, label] of Object.entries(langOptions)) {
+                                    dropdown.addOption(code, label);
+                                }
+                                dropdown
+                                    .setValue(this.plugin.settings.outputLanguage)
+                                    .onChange(async (value) => {
+                                        this.plugin.settings.outputLanguage = value;
+                                        await this.plugin.saveSettings();
+                                        this.plugin.updateIndexerSettings();
+                                        this.plugin.refreshConcordanceView();
+                                    });
+                            });
                         },
                     },
                     {
                         name: 'Reference format',
                         desc: 'How scripture references are displayed',
-                        control: {
-                            type: 'dropdown',
-                            key: 'nameFormat',
-                            options: {
-                                full: 'Full (1 Corinthians)',
-                                standard: 'Standard (1 Cor.)',
-                                official: 'Official (1Co)',
-                            },
+                        render: (setting) => {
+                            setting.addDropdown((dropdown) => {
+                                dropdown.addOption('full', 'Full (1 Corinthians)');
+                                dropdown.addOption('standard', 'Standard (1 Cor.)');
+                                dropdown.addOption('official', 'Official (1Co)');
+                                dropdown
+                                    .setValue(this.plugin.settings.nameFormat)
+                                    .onChange(async (value) => {
+                                        this.plugin.settings.nameFormat = value as 'full' | 'standard' | 'official';
+                                        await this.plugin.saveSettings();
+                                        this.plugin.updateIndexerSettings();
+                                        this.plugin.refreshConcordanceView();
+                                    });
+                            });
                         },
                     },
                 ],
@@ -148,10 +162,21 @@ export class ConversumSettingTab extends PluginSettingTab {
                     {
                         name: 'Auto-index',
                         desc: 'Automatically update the index when files change',
-                        control: {
-                            type: 'toggle',
-                            key: 'autoIndex',
-                            defaultValue: true,
+                        render: (setting) => {
+                            setting.addToggle((toggle) => {
+                                toggle
+                                    .setValue(this.plugin.settings.autoIndex)
+                                    .onChange(async (value) => {
+                                        this.plugin.settings.autoIndex = value;
+                                        await this.plugin.saveSettings();
+                                        if (value) {
+                                            void this.plugin.startFileWatcherWithCatchUp();
+                                        } else {
+                                            this.plugin.stopFileWatcher();
+                                        }
+                                        this.plugin.refreshConcordanceView();
+                                    });
+                            });
                         },
                     },
                     {
