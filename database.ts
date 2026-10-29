@@ -3,7 +3,7 @@
 // @ts-ignore
 import { SQL_WASM_BASE64 } from './wasm-base64';
 import initSqlJs, { Database as SqlDatabase } from 'sql.js';
-import { isWholeBookReference } from './engine-wrapper'
+import { isWholeBookReference, decodeScripturesSplit } from './engine-wrapper'
 import type ConversumPlugin from './main';
 import { ConversumData, ReferenceIndexEntry, FileCacheEntry } from './types';
 
@@ -57,6 +57,7 @@ export class IndexDatabase {
             this.createTables();
             this.migrateSchema();
             this.cleanupOrphans();
+            this.migrateVersion();
             await this.loadDataFromDB();
             this.initialized = true;
             await this.saveToDisk();
@@ -140,6 +141,29 @@ export class IndexDatabase {
         }
         if (!columns.has('content_hash')) {
             this.db.run('ALTER TABLE file_index ADD COLUMN content_hash TEXT');
+        }
+    }
+
+    private migrateVersion(): void {
+        if (!this.db) return;
+        const currentVersion = this.plugin.manifest.version;
+        const currentMajor = parseInt(currentVersion.split('.')[0], 10);
+        let storedVersion = '';
+        try {
+            const result = this.db.exec(`SELECT value FROM metadata WHERE key = 'version'`);
+            if (result.length > 0 && result[0].values.length > 0) {
+                storedVersion = result[0].values[0][0] as string || '';
+            }
+        } catch {
+            storedVersion = '';
+        }
+        const major = parseInt(storedVersion.split('.')[0] || '0', 10);
+        if (isNaN(major) || major < currentMajor) {
+            this.db.run('DELETE FROM ref_occurrences');
+            this.db.run('DELETE FROM ref_detail');
+            this.db.run('DELETE FROM file_index');
+            this.db.run('INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)', ['version', currentVersion]);
+            this.db.run('INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)', ['lastUpdated', '0']);
         }
     }
 
@@ -394,17 +418,6 @@ export class IndexDatabase {
         };
     }
 
-    getUnformattedCount(): number {
-        if (!this.db) return 0;
-        const result = this.db.exec(`
-            SELECT COUNT(DISTINCT range_key) 
-            FROM ref_detail 
-            WHERE formatted IS NULL
-        `);
-        if (result.length === 0) return 0;
-        return result[0].values[0][0] as number;
-    }
-
     getAllRangeKeys(): string[] {
         if (!this.db) return [];
         const result = this.db.exec(`
@@ -412,22 +425,6 @@ export class IndexDatabase {
         `);
         if (result.length === 0) return [];
         return result[0].values.map(row => row[0] as string);
-    }
-
-    getUnformattedRangeKeys(limit: number): string[] {
-        if (!this.db) return [];
-        const result = this.db.exec(`
-            SELECT range_key 
-            FROM ref_detail 
-            WHERE formatted IS NULL
-            LIMIT ?
-        `, [limit]);
-        if (result.length === 0) return [];
-        return result[0].values.map(row => row[0] as string);
-    }
-
-    isFullyFormatted(): boolean {
-        return this.getUnformattedCount() === 0;
     }
 
     getReferenceCount(): number {
@@ -523,11 +520,18 @@ export class IndexDatabase {
         endChapter?: number
     ): void {
         if (!this.db) return;
+
+        const split = decodeScripturesSplit([[startBcv, endBcv]], 'en', 'full');
+        if (!split || split.length === 0) {
+            return;
+        }
+        const suffix = split[0][1] || '';
+
         const detailStmt = this.db.prepare(`
             INSERT OR IGNORE INTO ref_detail (
                 range_key, start_bcv, end_bcv, book_id, chapter,
                 start_verse, end_verse, end_chapter, formatted
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         detailStmt.run([
             rangeKey,
@@ -537,9 +541,11 @@ export class IndexDatabase {
             chapter,
             startVerse,
             endVerse,
-            endChapter || null
+            endChapter || null,
+            suffix
         ]);
         detailStmt.free();
+
         const occStmt = this.db.prepare(`
             INSERT INTO ref_occurrences (range_key, file_path)
             VALUES (?, ?)
@@ -572,22 +578,6 @@ export class IndexDatabase {
         stmt.run([filePath]);
         stmt.free();
         this.cleanupOrphans();
-    }
-
-    updateFormatted(rangeKey: string, formatted: string): void {
-        if (!this.db) return;
-        const stmt = this.db.prepare(`
-            UPDATE ref_detail 
-            SET formatted = ? 
-            WHERE range_key = ?
-        `);
-        stmt.run([formatted, rangeKey]);
-        stmt.free();
-    }
-
-    clearFormattedReferences(): void {
-        if (!this.db) return;
-        this.db.run('UPDATE ref_detail SET formatted = NULL');
     }
 
     cleanupOrphans(): void {
@@ -958,7 +948,6 @@ export class IndexDatabase {
                     this.rollbackTransaction();
                 }
             }
-            this.db.run('VACUUM');
             await this.saveToDisk();
             this.db.close();
             this.db = null;
