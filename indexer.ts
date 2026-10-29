@@ -2,7 +2,7 @@
 
 import type { Vault, TFile } from 'obsidian';
 import { IndexDatabase } from './database';
-import { parseReferences, isEngineReady, decodeScriptures, resolveLanguage } from './engine-wrapper';
+import { parseReferences, isEngineReady, resolveLanguage } from './engine-wrapper';
 import type ConversumPlugin from './main';
 import { ReferenceIndexEntry, FileCacheEntry, IndexProgress, ConversumData, NameFormat } from './types';
 
@@ -86,8 +86,6 @@ interface FrontmatterData {
 // Tunables
 const REBUILD_CHUNK_SIZE = 1;
 const PROGRESS_INTERVAL_MS = 200;
-const FORMAT_BATCH_SIZE = 50;
-const FORMAT_BATCH_DELAY_MS = 100;
 // Files larger than this (bytes) are parsed paragraph-by-paragraph instead of
 // whole, so a single huge note cannot monopolize the main thread.
 const LARGE_FILE_BYTES = 24_000;
@@ -115,11 +113,6 @@ export class ScriptureIndexer {
     };
     private isIndexing = false;
     private abortRequested = false;
-    private isFormatting = false;
-    private formattingAbortRequested = false;
-    private formattingTimeout: number | null = null;
-    private formattingBatchSize = FORMAT_BATCH_SIZE;
-    private formattingDelayMs = FORMAT_BATCH_DELAY_MS;
 
     constructor(
         vault: Vault,
@@ -284,118 +277,6 @@ export class ScriptureIndexer {
         }
 
         return result;
-    }
-
-    // ============================================================
-    // FORMATTING
-    // ============================================================
-
-    async clearFormatted(): Promise<void> {
-        this.abortFormatting();
-        try {
-            this.db.beginTransaction();
-            this.db.clearFormattedReferences();
-            await this.db.commitTransaction();
-        } catch (e) {
-            this.db.rollbackTransaction();
-            throw e;
-        }
-    }
-
-    abortFormatting(): void {
-        this.formattingAbortRequested = true;
-        if (this.formattingTimeout) {
-            window.clearTimeout(this.formattingTimeout);
-            this.formattingTimeout = null;
-        }
-        this.isFormatting = false;
-    }
-
-    startBackgroundFormatting(): void {
-        if (this.isFormatting) {
-            this.abortFormatting();
-            window.setTimeout(() => {
-                this.startBackgroundFormatting();
-            }, 50);
-            return;
-        }
-        if (this.isIndexing) {
-            window.setTimeout(() => {
-                this.startBackgroundFormatting();
-            }, 5000);
-            return;
-        }
-        const unformattedCount = this.db.getUnformattedCount();
-        if (unformattedCount === 0) {
-            this.plugin.refreshSettings();
-            return;
-        }
-        this.isFormatting = true;
-        this.formattingAbortRequested = false;
-        this.plugin.refreshSettings();
-        this.formattingTimeout = window.setTimeout(() => {
-            void this.formatBatch();
-        }, 100);
-    }
-
-    private async formatBatch(): Promise<void> {
-        if (this.formattingAbortRequested) {
-            this.isFormatting = false;
-            this.plugin.refreshSettings();
-            return;
-        }
-        const rangeKeys = this.db.getUnformattedRangeKeys(this.formattingBatchSize);
-        if (rangeKeys.length === 0) {
-            this.isFormatting = false;
-            this.plugin.refreshConcordanceView();
-            this.plugin.refreshSettings();
-            return;
-        }
-        try {
-            this.db.beginTransaction();
-            for (const rangeKey of rangeKeys) {
-                if (this.formattingAbortRequested) break;
-                try {
-                    const data = this.db.getOccurrenceData(rangeKey);
-                    if (!data) {
-                        continue;
-                    }
-                    const ranges: Array<[string, string]> = [[
-                        `${String(data.bookId).padStart(2, '0')}${String(data.chapter).padStart(3, '0')}${String(data.startVerse).padStart(3, '0')}`,
-                        `${String(data.bookId).padStart(2, '0')}${String(data.endChapter !== undefined && data.endChapter !== data.chapter ? data.endChapter : data.chapter).padStart(3, '0')}${String(data.endVerse).padStart(3, '0')}`
-                    ]];
-                    const decoded = decodeScriptures(
-                        ranges,
-                        this.outputLanguage,
-                        this.nameFormat
-                    );
-                    const formatted = decoded && decoded.length > 0 ? decoded[0] : `${data.startBcv}-${data.endBcv}`;
-                    this.db.updateFormatted(rangeKey, formatted);
-                } catch {
-                    // Skip failed formatting
-                }
-            }
-            if (!this.formattingAbortRequested) {
-                await this.db.commitTransaction();
-            } else {
-                this.db.rollbackTransaction();
-                this.isFormatting = false;
-                this.plugin.refreshSettings();
-                return;
-            }
-            this.plugin.refreshSettings();
-            this.formattingTimeout = window.setTimeout(() => {
-                void this.formatBatch();
-            }, this.formattingDelayMs);
-        } catch {
-            this.db.rollbackTransaction();
-            this.isFormatting = false;
-            this.plugin.refreshSettings();
-        }
-    }
-
-    isFormattingBusy(): boolean {
-        return this.isFormatting;
     }
 
     // ============================================================
@@ -571,7 +452,6 @@ export class ScriptureIndexer {
             this.progress.status = 'complete';
             this.progress.currentFile = undefined;
             emitProgress(true);
-            this.startBackgroundFormatting();
             return this.data;
         } catch (e) {
             this.db.rollbackTransaction();
@@ -589,7 +469,7 @@ export class ScriptureIndexer {
         }
     }
 
-    async updateFile(file: TFile, skipFormatting: boolean = false): Promise<void> {
+    async updateFile(file: TFile, _skipFormatting: boolean = false): Promise<void> {
         if (this.isExcluded(file.path)) return;
         if (this.isIndexing) {
             return;
@@ -691,9 +571,6 @@ export class ScriptureIndexer {
                 this.db.beginTransaction();
                 this.db.cleanupOrphans();
                 await this.db.commitTransaction();
-                if (occurrences.length > 0 && !skipFormatting) {
-                    this.startBackgroundFormatting();
-                }
             } catch (e) {
                 this.db.rollbackTransaction();
                 throw e;
@@ -789,9 +666,6 @@ export class ScriptureIndexer {
             }
         }
 
-        if (touched > 0) {
-            this.startBackgroundFormatting();
-        }
         return touched;
     }
 
@@ -817,12 +691,11 @@ export class ScriptureIndexer {
     }
 
     isBusy(): boolean {
-        return this.isIndexing || this.isFormatting;
+        return this.isIndexing;
     }
 
     abort(): void {
         this.abortRequested = true;
-        this.abortFormatting();
     }
 
     updateSettings(
@@ -831,16 +704,10 @@ export class ScriptureIndexer {
         nameFormat: NameFormat,
         excludedFolders: string[]
     ): void {
-        const outputChanged = this.outputLanguage !== outputLanguage || this.nameFormat !== nameFormat;
         this.sourceLanguage = sourceLanguage;
         this.outputLanguage = outputLanguage;
         this.nameFormat = nameFormat;
         this.excludedFolders = excludedFolders;
-        if (outputChanged) {
-            void this.clearFormatted().then(() => {
-                this.startBackgroundFormatting();
-            });
-        }
     }
 
     // ============================================================
