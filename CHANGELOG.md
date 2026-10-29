@@ -11,7 +11,7 @@
 ### Removed
 
 ____
-## [4.0.0] - 2026-10-29
+## [4.0.1] - 2026-10-29
 ### Changed
 
 - Updated engine to v6.0.0
@@ -109,7 +109,7 @@ ____
 - Initial *beta* release
 
 ____
-[4.0.0]:https://github.com/erykjj/conversum/releases/tag/4.0.0
+[4.0.1]:https://github.com/erykjj/conversum/releases/tag/4.0.1
 [3.1.0]:https://github.com/erykjj/conversum/releases/tag/3.1.0
 [2.0.0]:https://github.com/erykjj/conversum/releases/tag/2.0.0
 [1.6.0]:https://github.com/erykjj/conversum/releases/tag/1.6.0
