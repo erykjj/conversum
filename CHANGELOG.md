@@ -6,6 +6,8 @@
 
 ### Changed
 
+- Improved startup time
+
 ### Fixed
 
 ### Removed
