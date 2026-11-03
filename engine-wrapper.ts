@@ -17,6 +17,23 @@ let engineInitialized = false;
 let inrefensEnabled = false;
 let engineId = 0;
 
+let engineReadyPromise: Promise<void> | null = null;
+
+export function ensureEngineReady(): Promise<void> {
+    if (!engineReadyPromise) {
+        return Promise.reject(new Error('engine: scheduleEngineInit not called'));
+    }
+    return engineReadyPromise;
+}
+
+export function scheduleEngineInit(app: App, inrefens: boolean): Promise<void> {
+    if (!engineReadyPromise) {
+        engineReadyPromise = Promise.resolve().then(() => initEngine(app, inrefens));
+        engineReadyPromise.catch(() => {});
+    }
+    return engineReadyPromise;
+}
+
 function getEngineKey(language: string, format: NameFormat): string {
     return `${language}|${format}`;
 }

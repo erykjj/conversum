@@ -2,7 +2,7 @@
 
 import { Plugin, Notice, Menu, TFile, TAbstractFile, Editor, EditorPosition, MarkdownView, MenuItem } from 'obsidian';
 import { IndexDatabase } from './database';
-import { initEngine, isEngineReady, parseReferences, getBookName, decodeScripturesSplit, prewarmEngines, clearEnginePool } from './engine-wrapper';
+import { isEngineReady, parseReferences, getBookName, decodeScripturesSplit, prewarmEngines, clearEnginePool, scheduleEngineInit } from './engine-wrapper';
 import { ScriptureIndexer } from './indexer';
 import { RelatedNotesPopout } from './related';
 import { ConversumSettingTab } from './settings';
@@ -25,6 +25,7 @@ export default class ConversumPlugin extends Plugin {
     private scanTickTimer: number | null = null;
     private isProcessingBatch = false;
     public settingsTab: ConversumSettingTab | null = null;
+    private bootstrapPromise: Promise<void> | null = null;
 
     public getDatabase(): IndexDatabase | null {
         return this.db;
@@ -41,35 +42,23 @@ export default class ConversumPlugin extends Plugin {
             plugins?: { enabledPlugins?: Set<string> };
         }).plugins?.enabledPlugins?.has('inrefens') ?? false;
 
-        try {
-            await initEngine(this.app, inrefensOn);
-        } catch (e) {
-            console.error('con[VER]sum: Failed to initialize engine:', e);
-            new Notice('con[VER]sum: Failed to initialize engine.');
-        }
-        prewarmEngines(this.settings.sourceLanguage, this.settings.outputLanguage);
-
-        this.db = new IndexDatabase(this);
-        await this.db.init();
-        this.initIndexer();
-
         this.registerView(VIEW_TYPE_CONVERSUM_CONCORDANCE, (leaf) => new ConcordanceView(leaf, this));
         this.relatedPopout = new RelatedNotesPopout(this);
-
         this.settingsTab = new ConversumSettingTab(this.app, this);
         this.addSettingTab(this.settingsTab);
-
         this.addCommands();
         this.registerEvents();
         this.addRibbonIcon('book-open', 'con[VER]sum Concordance', () => {
             void this.openConcordanceView();
         });
 
-        await this.handleStartup();
-
-        if (this.settings.autoIndex) {
-            this.startFileWatcher();
-        }
+        this.app.workspace.onLayoutReady(() => {
+            this.closeConcordanceLeaves();
+        });
+        this.bootstrapPromise = this.runBootstrap(inrefensOn);
+        this.app.workspace.onLayoutReady(() => {
+            void this.handleStartup();
+        });
     }
 
     onunload(): void {
@@ -79,10 +68,51 @@ export default class ConversumPlugin extends Plugin {
             this.relatedPopout = null;
         }
         clearEnginePool();
-        if (this.db) {
-            void this.db.close().then(() => {
+        const finish = async () => {
+            if (this.bootstrapPromise) {
+                try { await this.bootstrapPromise; } catch { /* already logged */ }
+            }
+            if (this.db) {
+                try { await this.db.close(); } catch { /* best effort */ }
                 this.db = null;
-            });
+            }
+        };
+        void finish();
+    }
+
+    // ============================================================
+    // BOOTSTRAP
+    // ============================================================
+
+    private async runBootstrap(inrefensOn: boolean): Promise<void> {
+        try {
+            await scheduleEngineInit(this.app, inrefensOn);
+            prewarmEngines(this.settings.sourceLanguage, this.settings.outputLanguage);
+
+            this.db = new IndexDatabase(this);
+            await this.db.init();
+            this.initIndexer();
+
+            if (this.settings.autoIndex) {
+                this.startFileWatcher();
+            }
+
+            this.refreshConcordanceView();
+            this.refreshSettings();
+        } catch (e) {
+            console.error('con[VER]sum: bootstrap failed:', e);
+            new Notice('con[VER]sum: failed to initialize. See console for details.');
+        }
+    }
+
+    private closeConcordanceLeaves(): void {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CONVERSUM_CONCORDANCE);
+        for (const leaf of leaves) {
+            try {
+                leaf.detach();
+            } catch (e) {
+                console.warn('con[VER]sum: failed to detach concordance leaf:', e);
+            }
         }
     }
 
@@ -103,6 +133,9 @@ export default class ConversumPlugin extends Plugin {
     // ============================================================
 
     private async handleStartup(): Promise<void> {
+        if (this.bootstrapPromise) {
+            try { await this.bootstrapPromise; } catch { return; }
+        }
         if (!this.indexer || !this.db) {
             return;
         }
@@ -274,6 +307,9 @@ export default class ConversumPlugin extends Plugin {
     }
 
     async rebuildIndex(): Promise<void> {
+        if (this.bootstrapPromise) {
+            try { await this.bootstrapPromise; } catch { return; }
+        }
         if (!this.indexer) {
             new Notice('Indexer not initialized');
             return;
@@ -366,6 +402,9 @@ export default class ConversumPlugin extends Plugin {
     }
 
     public async startFileWatcherWithCatchUp(): Promise<void> {
+        if (this.bootstrapPromise) {
+            try { await this.bootstrapPromise; } catch { return; }
+        }
         if (this.fileWatcherEnabled) return;
         this.startFileWatcher();
         await this.runInitialCatchUp();
@@ -401,6 +440,7 @@ export default class ConversumPlugin extends Plugin {
     }
 
     private async processPendingBatch(): Promise<void> {
+        if (this.bootstrapPromise && !this.db) return;
         if (!this.settings.autoIndex || !this.fileWatcherEnabled) return;
         if (!this.indexer || this.indexer.isBusy() || this.isRebuilding) return;
         if (!isEngineReady()) return;
@@ -550,7 +590,7 @@ export default class ConversumPlugin extends Plugin {
                         submenu.addItem((subItem: MenuItem) => {
                             subItem.setTitle('Find related notes').setIcon('link');
                             subItem.onClick(() => {
-                                this.showRelatedNotesFromParsed([matchedEntry]);
+                                void this.showRelatedNotesFromParsed([matchedEntry]);
                             });
                         });
                     }
@@ -736,7 +776,7 @@ export default class ConversumPlugin extends Plugin {
                     submenu.addItem((subItem: MenuItem) => {
                         subItem.setTitle('Find related notes').setIcon('link');
                         subItem.onClick(() => {
-                            this.showRelatedNotesFromParsed(parsed);
+                            void this.showRelatedNotesFromParsed(parsed);
                         });
                     });
                 }
@@ -773,6 +813,9 @@ export default class ConversumPlugin extends Plugin {
     // ============================================================
 
     async openConcordanceView(): Promise<void> {
+        if (this.bootstrapPromise) {
+            try { await this.bootstrapPromise; } catch { return; }
+        }
         const { workspace } = this.app;
         let leaf = workspace.getLeavesOfType(VIEW_TYPE_CONVERSUM_CONCORDANCE)[0];
         if (!leaf) {
@@ -849,7 +892,10 @@ export default class ConversumPlugin extends Plugin {
         return null;
     }
 
-    private showRelatedNotesFromParsed(parsed: ParsedReference[], evt?: MouseEvent): void {
+    private async showRelatedNotesFromParsed(parsed: ParsedReference[], evt?: MouseEvent): Promise<void> {
+        if (this.bootstrapPromise) {
+            try { await this.bootstrapPromise; } catch { return; }
+        }
         if (!parsed || parsed.length === 0) return;
         const ranges = parsed[0][3];
         if (!ranges || ranges.length === 0) return;
@@ -872,7 +918,10 @@ export default class ConversumPlugin extends Plugin {
         }
     }
 
-    private findRelatedNotesAtCursor(editor: Editor, cursor: EditorPosition, line: string): void {
+    private async findRelatedNotesAtCursor(editor: Editor, cursor: EditorPosition, line: string): Promise<void> {
+        if (this.bootstrapPromise) {
+            try { await this.bootstrapPromise; } catch { return; }
+        }
         if (!isEngineReady()) {
             new Notice('Engine not ready');
             return;
@@ -946,6 +995,9 @@ export default class ConversumPlugin extends Plugin {
     // ============================================================
 
     async exportConcordance(): Promise<void> {
+        if (this.bootstrapPromise) {
+            try { await this.bootstrapPromise; } catch { return; }
+        }
         if (!this.indexer) {
             new Notice('Indexer not initialized');
             return;
