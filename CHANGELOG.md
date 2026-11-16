@@ -7,6 +7,9 @@
 ### Changed
 
 - Improved startup time
+- Many other fixes and improvements
+  - Vault will need to be fully re-indexed on first run
+- Updated engine to v7.0.0
 
 ### Fixed
 
