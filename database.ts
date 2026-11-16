@@ -9,6 +9,19 @@ import { ConversumData, ReferenceIndexEntry, FileCacheEntry } from './types';
 
 const DB_NAME = 'conversum-index.db';
 
+// Databases written before this version are rebuilt once
+const REINDEX_BEFORE = '5.0.0';
+
+function compareVersions(a: string, b: string): number {
+    const pa = a.split('.').map(n => parseInt(n, 10) || 0);
+    const pb = b.split('.').map(n => parseInt(n, 10) || 0);
+    for (let i = 0; i < 3; i++) {
+        const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+        if (diff !== 0) return diff;
+    }
+    return 0;
+}
+
 export class IndexDatabase {
     private plugin: ConversumPlugin;
     private db: SqlDatabase | null = null;
@@ -147,7 +160,6 @@ export class IndexDatabase {
     private migrateVersion(): void {
         if (!this.db) return;
         const currentVersion = this.plugin.manifest.version;
-        const currentMajor = parseInt(currentVersion.split('.')[0], 10);
         let storedVersion = '';
         try {
             const result = this.db.exec(`SELECT value FROM metadata WHERE key = 'version'`);
@@ -157,8 +169,8 @@ export class IndexDatabase {
         } catch {
             storedVersion = '';
         }
-        const major = parseInt(storedVersion.split('.')[0] || '0', 10);
-        if (isNaN(major) || major < currentMajor) {
+        if (compareVersions(currentVersion, REINDEX_BEFORE) >= 0
+            && compareVersions(storedVersion || '0', REINDEX_BEFORE) < 0) {
             this.db.run('DELETE FROM ref_occurrences');
             this.db.run('DELETE FROM ref_detail');
             this.db.run('DELETE FROM file_index');
