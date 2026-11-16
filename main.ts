@@ -3,7 +3,7 @@
 import { Plugin, Notice, Menu, TFile, TAbstractFile, Editor, EditorPosition, MarkdownView, MenuItem } from 'obsidian';
 import { IndexDatabase } from './database';
 import { isEngineReady, parseReferences, getBookName, decodeScripturesSplit, prewarmEngines, clearEnginePool, scheduleEngineInit } from './engine-wrapper';
-import { ScriptureIndexer } from './indexer';
+import { idleYield, ScriptureIndexer } from './indexer';
 import { RelatedNotesPopout } from './related';
 import { ConversumSettingTab } from './settings';
 import { ConcordanceView } from './sidebar';
@@ -48,14 +48,19 @@ export default class ConversumPlugin extends Plugin {
         this.addSettingTab(this.settingsTab);
         this.addCommands();
         this.registerEvents();
-        this.addRibbonIcon('book-open', 'con[VER]sum Concordance', () => {
+        this.addRibbonIcon('book-open', 'conVERsum Concordance', () => {
             void this.openConcordanceView();
         });
 
-        this.app.workspace.onLayoutReady(() => {
-            this.closeConcordanceLeaves();
+        this.bootstrapPromise = new Promise<void>((resolve) => {
+            this.app.workspace.onLayoutReady(() => {
+                this.closeConcordanceLeaves();
+                window.setTimeout(() => {
+                    void this.runBootstrap(inrefensOn).finally(resolve);
+                }, 100);
+            });
         });
-        this.bootstrapPromise = this.runBootstrap(inrefensOn);
+        this.bootstrapPromise.catch(() => {});
         this.app.workspace.onLayoutReady(() => {
             void this.handleStartup();
         });
@@ -88,20 +93,17 @@ export default class ConversumPlugin extends Plugin {
         try {
             await scheduleEngineInit(this.app, inrefensOn);
             prewarmEngines(this.settings.sourceLanguage, this.settings.outputLanguage);
-
+            await idleYield();
             this.db = new IndexDatabase(this);
             await this.db.init();
             this.initIndexer();
-
             if (this.settings.autoIndex) {
                 this.startFileWatcher();
             }
-
             this.refreshConcordanceView();
             this.refreshSettings();
-        } catch (e) {
-            console.error('con[VER]sum: bootstrap failed:', e);
-            new Notice('con[VER]sum: failed to initialize. See console for details.');
+        } catch {
+            new Notice('conVERsum: failed to initialize.');
         }
     }
 
@@ -110,9 +112,7 @@ export default class ConversumPlugin extends Plugin {
         for (const leaf of leaves) {
             try {
                 leaf.detach();
-            } catch (e) {
-                console.warn('con[VER]sum: failed to detach concordance leaf:', e);
-            }
+            } catch { }
         }
     }
 
@@ -350,11 +350,9 @@ export default class ConversumPlugin extends Plugin {
 
             try {
                 await this.indexer.catchUpAfterRebuild();
-            } catch (e) {
-                console.warn('con[VER]sum: post-rebuild catch-up failed:', e);
-            }
+            } catch { }
         } catch {
-            notice.setMessage('Index rebuild failed. See console for details.');
+            notice.setMessage('Index rebuild failed.');
             window.setTimeout(() => notice.hide(), 3000);
         } finally {
             this.isRebuilding = false;
@@ -598,135 +596,153 @@ export default class ConversumPlugin extends Plugin {
             })
         );
 
-        // Context menu - reading mode
-        this.registerDomEvent(activeDocument, 'contextmenu', (evt: MouseEvent) => {
-            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-            if (!view || view.getMode() !== 'preview') return;
-            const activeFile = this.app.workspace.getActiveFile();
-            const sourceLang = this.getEffectiveSourceLanguage(activeFile);
-            let parsed: ParsedReference[] | null = null;
-            const selection = activeDocument.getSelection()?.toString() || '';
-            if (selection) {
-                const processedText = this.transformForcedReferences(selection);
-                parsed = parseReferences(processedText, sourceLang, this.settings.outputLanguage, this.settings.nameFormat);
-                if (parsed && parsed.length > 0) {
-                    this.showReadingModeMenu(evt, parsed);
+        this.registerReadingModeMenu();
+    }
+
+    private forEachWindowDocument(register: (doc: Document) => void): void {
+        const done = new Set<Document>();
+        const once = (doc: Document) => {
+            if (done.has(doc)) return;
+            done.add(doc);
+            register(doc);
+        };
+        once(document);
+        this.app.workspace.iterateAllLeaves(leaf => once(leaf.view.containerEl.ownerDocument));
+        this.registerEvent(this.app.workspace.on('window-open', (_win, popoutWindow) => once(popoutWindow.document)));
+    }
+
+    private registerReadingModeMenu(): void {
+        this.forEachWindowDocument(doc => {
+            this.registerDomEvent(doc, 'contextmenu', (evt: MouseEvent) => {
+                const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+                if (!view || view.getMode() !== 'preview') return;
+                const activeFile = this.app.workspace.getActiveFile();
+                const sourceLang = this.getEffectiveSourceLanguage(activeFile);
+                let parsed: ParsedReference[] | null = null;
+                const selection = doc.getSelection()?.toString() || '';
+                if (selection) {
+                    const processedText = this.transformForcedReferences(selection);
+                    parsed = parseReferences(processedText, sourceLang, this.settings.outputLanguage, this.settings.nameFormat);
+                    if (parsed && parsed.length > 0) {
+                        this.showReadingModeMenu(evt, parsed);
+                        return;
+                    }
+                }
+                const element = doc.elementFromPoint(evt.clientX, evt.clientY);
+                if (!element) {
+                    this.showReadingModeMenu(evt, null);
                     return;
                 }
-            }
-            const element = activeDocument.elementFromPoint(evt.clientX, evt.clientY);
-            if (!element) {
-                this.showReadingModeMenu(evt, null);
-                return;
-            }
-            const position = activeDocument.caretPositionFromPoint(evt.clientX, evt.clientY);
-            let isAtEnd = false;
-            if (position) {
-                const container = position.offsetNode;
-                const offset = position.offset;
-                if (container && container.nodeType === Node.TEXT_NODE) {
-                    const textNode = container as Text;
-                    const text = textNode.textContent || '';
-                    if (offset >= text.length) {
-                        let nextSibling = textNode.nextSibling;
-                        let hasTextAfter = false;
-                        while (nextSibling) {
-                            if (nextSibling.nodeType === Node.TEXT_NODE) {
-                                const siblingText = (nextSibling as Text).textContent || '';
-                                if (siblingText.trim().length > 0) {
-                                    hasTextAfter = true;
-                                    break;
+                const position = doc.caretPositionFromPoint(evt.clientX, evt.clientY);
+                let isAtEnd = false;
+                if (position) {
+                    const container = position.offsetNode;
+                    const offset = position.offset;
+                    if (container && container.nodeType === Node.TEXT_NODE) {
+                        const textNode = container as Text;
+                        const text = textNode.textContent || '';
+                        if (offset >= text.length) {
+                            let nextSibling = textNode.nextSibling;
+                            let hasTextAfter = false;
+                            while (nextSibling) {
+                                if (nextSibling.nodeType === Node.TEXT_NODE) {
+                                    const siblingText = (nextSibling as Text).textContent || '';
+                                    if (siblingText.trim().length > 0) {
+                                        hasTextAfter = true;
+                                        break;
+                                    }
+                                } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                                    const elementText = (nextSibling as Element).textContent || '';
+                                    if (elementText.trim().length > 0) {
+                                        hasTextAfter = true;
+                                        break;
+                                    }
                                 }
-                            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                                const elementText = (nextSibling as Element).textContent || '';
-                                if (elementText.trim().length > 0) {
-                                    hasTextAfter = true;
-                                    break;
-                                }
+                                nextSibling = nextSibling.nextSibling;
                             }
-                            nextSibling = nextSibling.nextSibling;
-                        }
-                        if (!hasTextAfter) {
-                            isAtEnd = true;
+                            if (!hasTextAfter) {
+                                isAtEnd = true;
+                            }
                         }
                     }
                 }
-            }
-            if (isAtEnd) {
-                this.showReadingModeMenu(evt, null);
-                return;
-            }
-            let textToParse = '';
-            const linkEl = element.closest('a');
-            if (linkEl) {
-                const dataBcv = linkEl.getAttribute('data-bcv');
-                const linkText = linkEl.textContent || '';
-                if (dataBcv) {
-                    const displayText = linkEl.textContent || '';
-                    const rangeKey = `${dataBcv}-${dataBcv}`;
-                    const entry = this.indexer?.getReference(rangeKey);
-                    if (entry) {
-                        const refData: ParsedReference[] = [[displayText, 0, displayText.length, [[dataBcv, dataBcv]]]];
-                        this.showReadingModeMenu(evt, refData);
-                    } else {
-                        this.showReadingModeMenu(evt, null);
-                    }
+                if (isAtEnd) {
+                    this.showReadingModeMenu(evt, null);
                     return;
                 }
-                const parent = linkEl.parentElement;
-                if (parent) {
-                    const parentText = parent.textContent || '';
-                    const forceMatch = parentText.match(/\{\{(.+?)\}\}/);
-                    if (forceMatch) {
-                        textToParse = forceMatch[0];
+                let textToParse = '';
+                const linkEl = element.closest('a');
+                if (linkEl) {
+                    const dataBcv = linkEl.getAttribute('data-bcv');
+                    const linkText = linkEl.textContent || '';
+                    if (dataBcv) {
+                        const displayText = linkEl.textContent || '';
+                        // data-bcv is a single verse ("A") or a range ("A-B")
+                        const [startBcv, endBcv = startBcv] = dataBcv.split('-');
+                        const entry = this.indexer?.getReference(`${startBcv}-${endBcv}`);
+                        if (entry) {
+                            const refData: ParsedReference[] = [[displayText, 0, displayText.length, [[startBcv, endBcv]]]];
+                            this.showReadingModeMenu(evt, refData);
+                        } else {
+                            this.showReadingModeMenu(evt, null);
+                        }
+                        return;
+                    }
+                    const parent = linkEl.parentElement;
+                    if (parent) {
+                        const parentText = parent.textContent || '';
+                        const forceMatch = parentText.match(/\{\{(.+?)\}\}/);
+                        if (forceMatch) {
+                            textToParse = forceMatch[0];
+                        } else {
+                            textToParse = linkText;
+                        }
                     } else {
                         textToParse = linkText;
                     }
                 } else {
-                    textToParse = linkText;
-                }
-            } else {
-                if (position) {
-                    const container = position.offsetNode;
-                    if (container && container.nodeType === Node.TEXT_NODE) {
-                        const textNode = container as Text;
-                        const fullText = textNode.textContent || '';
-                        const forceMatch = fullText.match(/\{\{(.+?)\}\}/);
-                        if (forceMatch) {
-                            textToParse = forceMatch[0];
-                        } else {
-                            textToParse = fullText;
+                    if (position) {
+                        const container = position.offsetNode;
+                        if (container && container.nodeType === Node.TEXT_NODE) {
+                            const textNode = container as Text;
+                            const fullText = textNode.textContent || '';
+                            const forceMatch = fullText.match(/\{\{(.+?)\}\}/);
+                            if (forceMatch) {
+                                textToParse = forceMatch[0];
+                            } else {
+                                textToParse = fullText;
+                            }
                         }
                     }
                 }
-            }
-            if (textToParse && !textToParse.includes('{{')) {
-                const clickedText = textToParse.trim();
-                if (clickedText.length === 0) {
-                    const parentElement = element.closest('p, div, span, a');
-                    if (parentElement) {
-                        const fullText = parentElement.textContent || '';
-                        const forceMatch = fullText.match(/\{\{(.+?)\}\}/);
-                        if (forceMatch) {
-                            textToParse = forceMatch[0];
+                if (textToParse && !textToParse.includes('{{')) {
+                    const clickedText = textToParse.trim();
+                    if (clickedText.length === 0) {
+                        const parentElement = element.closest('p, div, span, a');
+                        if (parentElement) {
+                            const fullText = parentElement.textContent || '';
+                            const forceMatch = fullText.match(/\{\{(.+?)\}\}/);
+                            if (forceMatch) {
+                                textToParse = forceMatch[0];
+                            }
                         }
                     }
                 }
-            }
-            if (textToParse) {
-                const processedText = this.transformForcedReferences(textToParse);
-                const parsedResult = parseReferences(processedText, sourceLang, this.settings.outputLanguage, this.settings.nameFormat);
-                if (parsedResult && parsedResult.length > 0) {
-                    const refText = parsedResult[0][0];
-                    const contextText = element.textContent || '';
-                    const parentText = element.parentElement?.textContent || '';
-                    const fullContext = parentText || contextText;
-                    if (fullContext.includes(refText) || textToParse.includes(refText)) {
-                        parsed = parsedResult;
+                if (textToParse) {
+                    const processedText = this.transformForcedReferences(textToParse);
+                    const parsedResult = parseReferences(processedText, sourceLang, this.settings.outputLanguage, this.settings.nameFormat);
+                    if (parsedResult && parsedResult.length > 0) {
+                        const refText = parsedResult[0][0];
+                        const contextText = element.textContent || '';
+                        const parentText = element.parentElement?.textContent || '';
+                        const fullContext = parentText || contextText;
+                        if (fullContext.includes(refText) || textToParse.includes(refText)) {
+                            parsed = parsedResult;
+                        }
                     }
                 }
-            }
-            this.showReadingModeMenu(evt, parsed);
+                this.showReadingModeMenu(evt, parsed);
+            });
         });
     }
 
@@ -1016,7 +1032,7 @@ export default class ConversumPlugin extends Plugin {
             await this.app.workspace.openLinkText(file.path, '');
             new Notice(`Concordance exported: ${fileName}`);
         } catch {
-            new Notice('Export failed. See console for details.');
+            new Notice('Export failed.');
         }
     }
 

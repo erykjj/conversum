@@ -54,7 +54,7 @@ interface WindowWithIdle {
     ) => number;
 }
 
-function idleYield(): Promise<void> {
+export function idleYield(): Promise<void> {
     return new Promise<void>((resolve) => {
         const w = window as unknown as WindowWithIdle;
         if (typeof w.requestIdleCallback === 'function') {
