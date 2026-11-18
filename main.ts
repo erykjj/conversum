@@ -112,7 +112,9 @@ export default class ConversumPlugin extends Plugin {
         for (const leaf of leaves) {
             try {
                 leaf.detach();
-            } catch { }
+            } catch {
+                // pass
+            }
         }
     }
 
@@ -350,7 +352,9 @@ export default class ConversumPlugin extends Plugin {
 
             try {
                 await this.indexer.catchUpAfterRebuild();
-            } catch { }
+            } catch {
+                // pass
+            }
         } catch {
             notice.setMessage('Index rebuild failed.');
             window.setTimeout(() => notice.hide(), 3000);
@@ -813,7 +817,7 @@ export default class ConversumPlugin extends Plugin {
             editorCallback: (editor: Editor) => {
                 const cursor = editor.getCursor();
                 const line = editor.getLine(cursor.line);
-                this.findRelatedNotesAtCursor(editor, cursor, line);
+                void this.findRelatedNotesAtCursor(editor, cursor, line);
             }
         });
         this.addCommand({
