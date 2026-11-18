@@ -11,7 +11,7 @@
 ### Removed
 
 ____
-## [5.0.0] - 2026-11-18
+## [5.0.1] - 2026-11-18
 ### Changed
 
 - Many fixes and improvements
@@ -117,7 +117,7 @@ ____
 - Initial *beta* release
 
 ____
-[5.0.0]:https://github.com/erykjj/conversum/releases/tag/5.0.0
+[5.0.1]:https://github.com/erykjj/conversum/releases/tag/5.0.1
 [4.0.1]:https://github.com/erykjj/conversum/releases/tag/4.0.1
 [3.1.0]:https://github.com/erykjj/conversum/releases/tag/3.1.0
 [2.0.0]:https://github.com/erykjj/conversum/releases/tag/2.0.0
