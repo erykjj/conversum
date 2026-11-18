@@ -6,16 +6,19 @@
 
 ### Changed
 
-- Improved startup time
-- Many other fixes and improvements
-  - Vault will need to be fully re-indexed on first run
-- Updated engine to v7.0.0
-
 ### Fixed
 
 ### Removed
 
 ____
+## [5.0.0] - 2026-11-18
+### Changed
+
+- Many fixes and improvements
+- Updated engine to v7.0.0
+  - More accurate detection 
+  - Vault will need to be **fully re-indexed** on first run
+
 ## [4.0.1] - 2026-10-29
 ### Changed
 
@@ -114,6 +117,7 @@ ____
 - Initial *beta* release
 
 ____
+[5.0.0]:https://github.com/erykjj/conversum/releases/tag/5.0.0
 [4.0.1]:https://github.com/erykjj/conversum/releases/tag/4.0.1
 [3.1.0]:https://github.com/erykjj/conversum/releases/tag/3.1.0
 [2.0.0]:https://github.com/erykjj/conversum/releases/tag/2.0.0
