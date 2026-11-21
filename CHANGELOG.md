@@ -11,6 +11,12 @@
 ### Removed
 
 ____
+## [5.1.0] - 2026-11-21
+### Changed
+
+- Updated engine to v7.1.0
+  - Updated some Bible book names
+
 ## [5.0.1] - 2026-11-18
 ### Changed
 
@@ -117,6 +123,7 @@ ____
 - Initial *beta* release
 
 ____
+[5.1.0]:https://github.com/erykjj/conversum/releases/tag/5.1.0
 [5.0.1]:https://github.com/erykjj/conversum/releases/tag/5.0.1
 [4.0.1]:https://github.com/erykjj/conversum/releases/tag/4.0.1
 [3.1.0]:https://github.com/erykjj/conversum/releases/tag/3.1.0
