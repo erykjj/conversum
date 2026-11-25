@@ -1,9 +1,11 @@
 /* tslint:disable */
+/* eslint-disable */
 
 export class TravertureEngine {
     free(): void;
     [Symbol.dispose](): void;
     decode_scriptures(encoded_json: string): string;
+    decode_scriptures_split(encoded_json: string): string;
     static get_asl_metadata_url(book_number: number, chapter: number): string;
     static get_available_languages(): string;
     static get_book_name(book_number: number, lang_code: string, format: string, capitalize: boolean): string;
@@ -12,9 +14,10 @@ export class TravertureEngine {
     static get_lang_symbol(lang_code: string): string;
     static get_verse_count(book_id: number, chapter: number): number;
     static get_version(): string;
-    constructor(source_lang: string, output_lang: string, name_format: string, capitalize: boolean);
+    constructor(source_lang: string, output_lang: string, name_format: string, capitalize: boolean, inrefens_enabled: boolean, engine_id: number);
     parse(source_lang: string, output_lang: string, name_format: string, capitalize: boolean, text: string): string;
     parse_with_markers(text: string): string;
+    reformat(text: string): string;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -23,6 +26,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_travertureengine_free: (a: number, b: number) => void;
     readonly travertureengine_decode_scriptures: (a: number, b: number, c: number) => [number, number];
+    readonly travertureengine_decode_scriptures_split: (a: number, b: number, c: number) => [number, number];
     readonly travertureengine_get_asl_metadata_url: (a: number, b: number) => [number, number];
     readonly travertureengine_get_available_languages: () => [number, number];
     readonly travertureengine_get_book_name: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
@@ -31,9 +35,10 @@ export interface InitOutput {
     readonly travertureengine_get_lang_symbol: (a: number, b: number) => [number, number];
     readonly travertureengine_get_verse_count: (a: number, b: number) => number;
     readonly travertureengine_get_version: () => [number, number];
-    readonly travertureengine_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
-    readonly travertureengine_parse: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number];
+    readonly travertureengine_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
+    readonly travertureengine_parse: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly travertureengine_parse_with_markers: (a: number, b: number, c: number) => [number, number];
+    readonly travertureengine_reformat: (a: number, b: number, c: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
