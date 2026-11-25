@@ -11,7 +11,7 @@
 ### Removed
 
 ____
-## [5.2.0] - 2026-11-25
+## [5.2.1] - 2026-11-25
 ### Changed
 
 - Improved added/renamed/deleted directory handling
@@ -134,7 +134,7 @@ ____
 - Initial *beta* release
 
 ____
-[5.2.0]:https://github.com/erykjj/conversum/releases/tag/5.2.0
+[5.2.1]:https://github.com/erykjj/conversum/releases/tag/5.2.1
 [5.1.0]:https://github.com/erykjj/conversum/releases/tag/5.1.0
 [5.0.1]:https://github.com/erykjj/conversum/releases/tag/5.0.1
 [4.0.1]:https://github.com/erykjj/conversum/releases/tag/4.0.1
