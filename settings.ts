@@ -47,16 +47,33 @@ export class ConversumSettingTab extends PluginSettingTab {
         setting.addText((text) => {
             text.setPlaceholder('my_notes, drafts, archive');
             text.setValue(this.plugin.settings.excludedFolders.join(', '));
-            text.onChange(async (value) => {
-                const folders = value
+
+            const apply = async () => {
+                const folders = text.getValue()
                     .split(',')
                     .map((s) => s.trim())
                     .filter((s) => s.length > 0);
+                const current = this.plugin.settings.excludedFolders;
+                const unchanged =
+                    folders.length === current.length &&
+                    folders.every((f, i) => f === current[i]);
+                if (unchanged) return;
+
                 this.plugin.settings.excludedFolders = folders;
                 await this.plugin.saveSettings();
                 this.plugin.updateIndexerSettings();
                 if (this.plugin.settings.autoIndex) {
                     void this.plugin.rebuildIndex();
+                }
+            };
+
+            text.inputEl.addEventListener('blur', () => {
+                void apply();
+            });
+            text.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    text.inputEl.blur();
                 }
             });
         });
