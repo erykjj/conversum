@@ -643,7 +643,7 @@ export class ScriptureIndexer {
         const vaultPaths = new Set(allFiles.map(f => f.path));
         const toRemove: string[] = [];
         for (const cachedPath of Object.keys(cache)) {
-            if (!vaultPaths.has(cachedPath)) {
+            if (!vaultPaths.has(cachedPath) || this.isExcluded(cachedPath)) {
                 toRemove.push(cachedPath);
             }
         }

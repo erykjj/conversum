@@ -49,21 +49,34 @@ export class ConversumSettingTab extends PluginSettingTab {
             text.setValue(this.plugin.settings.excludedFolders.join(', '));
 
             const apply = async () => {
-                const folders = text.getValue()
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter((s) => s.length > 0);
-                const current = this.plugin.settings.excludedFolders;
+                const seen = new Set<string>();
+                const folders: string[] = [];
+                for (const raw of text.getValue().split(',')) {
+                    const f = raw.trim().replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
+                    if (f && !seen.has(f)) {
+                        seen.add(f);
+                        folders.push(f);
+                    }
+                }
+                text.setValue(folders.join(', '));
+
+                const previous = this.plugin.settings.excludedFolders;
                 const unchanged =
-                    folders.length === current.length &&
-                    folders.every((f, i) => f === current[i]);
+                    folders.length === previous.length &&
+                    folders.every((f, i) => f === previous[i]);
                 if (unchanged) return;
+
+                for (const f of folders) {
+                    if (!previous.includes(f) && !this.app.vault.getFolderByPath(f)) {
+                        new Notice(`Directory '${f}' doesn't exist`);
+                    }
+                }
 
                 this.plugin.settings.excludedFolders = folders;
                 await this.plugin.saveSettings();
                 this.plugin.updateIndexerSettings();
                 if (this.plugin.settings.autoIndex) {
-                    void this.plugin.rebuildIndex();
+                    await this.plugin.runInitialCatchUp();
                 }
             };
 

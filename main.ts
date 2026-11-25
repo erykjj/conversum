@@ -412,7 +412,7 @@ export default class ConversumPlugin extends Plugin {
         await this.runInitialCatchUp();
     }
 
-    private async runInitialCatchUp(): Promise<void> {
+    public async runInitialCatchUp(): Promise<void> {
         if (!this.indexer || this.indexer.isBusy() || this.isRebuilding) return;
         if (!isEngineReady()) return;
 
