@@ -320,6 +320,9 @@ export class ConcordanceView extends ItemView {
             return;
         }
         this.buildView();
+        if (this.searchQuery) {
+            this.applySearch();
+        }
     }
 
     private refMatchesQuery(ref: ReferenceGroup, normalizedQuery: string): boolean {
