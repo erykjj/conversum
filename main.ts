@@ -1,6 +1,6 @@
 // main.ts
 
-import { Plugin, Notice, Menu, TFile, TAbstractFile, Editor, EditorPosition, MarkdownView, MenuItem } from 'obsidian';
+import { Plugin, Notice, Menu, TFile, TFolder, TAbstractFile, Editor, EditorPosition, MarkdownView, MenuItem } from 'obsidian';
 import { IndexDatabase } from './database';
 import { isEngineReady, parseReferences, getBookName, decodeScripturesSplit, prewarmEngines, clearEnginePool, scheduleEngineInit } from './engine-wrapper';
 import { idleYield, ScriptureIndexer } from './indexer';
@@ -48,6 +48,7 @@ export default class ConversumPlugin extends Plugin {
         this.addSettingTab(this.settingsTab);
         this.addCommands();
         this.registerEvents();
+        this.registerVaultEvents();
         this.addRibbonIcon('book-open', 'conVERsum Concordance', () => {
             void this.openConcordanceView();
         });
@@ -224,12 +225,8 @@ export default class ConversumPlugin extends Plugin {
             }
         }
 
-        const freshData = this.db.getData();
-        const freshFileCache = freshData.fileCache || {};
-        for (const cachedPath of Object.keys(freshFileCache)) {
-            if (!vaultPaths.has(cachedPath) || this.indexer.isExcluded(cachedPath)) {
-                await this.indexer.removeFile(cachedPath);
-            }
+        for (const stalePath of this.indexer.getStaleCachedPaths(vaultPaths)) {
+            await this.indexer.removeFile(stalePath);
         }
 
         this.refreshConcordanceView();
@@ -497,10 +494,18 @@ export default class ConversumPlugin extends Plugin {
     private scheduleFileRemoval(path: string): void {
         if (!this.settings.autoIndex || !this.fileWatcherEnabled) return;
         if (!this.indexer) return;
-        for (const folder of this.settings.excludedFolders) {
-            if (path.startsWith(folder + '/') || path === folder) return;
-        }
         this.pendingRemovalPaths.add(path);
+    }
+
+    private scheduleFolderRemoval(folderPath: string): void {
+        if (!this.settings.autoIndex || !this.fileWatcherEnabled) return;
+        if (!this.indexer) return;
+        const prefix = folderPath + '/';
+        for (const path of Object.keys(this.indexer.getData().fileCache)) {
+            if (path.startsWith(prefix)) {
+                this.pendingRemovalPaths.add(path);
+            }
+        }
     }
 
     // ============================================================
@@ -508,40 +513,6 @@ export default class ConversumPlugin extends Plugin {
     // ============================================================
 
     private registerEvents(): void {
-        this.registerEvent(
-            this.app.vault.on('modify', (file: TAbstractFile) => {
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.scheduleIndexUpdate(file);
-                }
-            })
-        );
-
-        this.registerEvent(
-            this.app.vault.on('create', (file: TAbstractFile) => {
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.scheduleIndexUpdate(file);
-                }
-            })
-        );
-
-        this.registerEvent(
-            this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.scheduleFileRemoval(oldPath);
-                    this.scheduleIndexUpdate(file);
-                }
-            })
-        );
-
-        this.registerEvent(
-            this.app.vault.on('delete', (file: TAbstractFile) => {
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.scheduleFileRemoval(file.path);
-                }
-            })
-        );
-
-        // Context menu - editor mode
         this.registerEvent(
             this.app.workspace.on('editor-menu', (menu: Menu, editor: Editor) => {
                 const cursor = editor.getCursor();
@@ -601,6 +572,51 @@ export default class ConversumPlugin extends Plugin {
         );
 
         this.registerReadingModeMenu();
+    }
+
+    private registerVaultEvents(): void {
+        this.registerEvent(
+            this.app.vault.on('modify', (file: TAbstractFile) => {
+                if (file instanceof TFile && file.extension === 'md') {
+                    this.scheduleIndexUpdate(file);
+                }
+            })
+        );
+
+        this.registerEvent(
+            this.app.vault.on('create', (file: TAbstractFile) => {
+                if (file instanceof TFile && file.extension === 'md') {
+                    this.scheduleIndexUpdate(file);
+                }
+            })
+        );
+
+        this.registerEvent(
+            this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
+                if (file instanceof TFile && file.extension === 'md') {
+                    this.scheduleFileRemoval(oldPath);
+                    this.scheduleIndexUpdate(file);
+                } else if (file instanceof TFolder) {
+                    this.scheduleFolderRemoval(oldPath);
+                    const prefix = file.path + '/';
+                    for (const child of this.app.vault.getMarkdownFiles()) {
+                        if (child.path.startsWith(prefix)) {
+                            this.scheduleIndexUpdate(child);
+                        }
+                    }
+                }
+            })
+        );
+
+        this.registerEvent(
+            this.app.vault.on('delete', (file: TAbstractFile) => {
+                if (file instanceof TFile && file.extension === 'md') {
+                    this.scheduleFileRemoval(file.path);
+                } else if (file instanceof TFolder) {
+                    this.scheduleFolderRemoval(file.path);
+                }
+            })
+        );
     }
 
     private forEachWindowDocument(register: (doc: Document) => void): void {

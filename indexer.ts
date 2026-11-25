@@ -507,8 +507,8 @@ export class ScriptureIndexer {
                         if (entry) {
                             const idx = entry.files.findIndex((f) => f.path === file.path);
                             if (idx !== -1) {
+                                entry.totalOccurrences -= entry.files[idx].occurrences;
                                 entry.files.splice(idx, 1);
-                                entry.totalOccurrences -= 1;
                             }
                             if (entry.files.length === 0) {
                                 delete this.data.references[key];
@@ -599,8 +599,8 @@ export class ScriptureIndexer {
                     if (entry) {
                         const idx = entry.files.findIndex((f) => f.path === filePath);
                         if (idx !== -1) {
+                            entry.totalOccurrences -= entry.files[idx].occurrences;
                             entry.files.splice(idx, 1);
-                            entry.totalOccurrences -= 1;
                         }
                         if (entry.files.length === 0) {
                             delete this.data.references[key];
@@ -640,13 +640,7 @@ export class ScriptureIndexer {
             }
         }
 
-        const vaultPaths = new Set(allFiles.map(f => f.path));
-        const toRemove: string[] = [];
-        for (const cachedPath of Object.keys(cache)) {
-            if (!vaultPaths.has(cachedPath) || this.isExcluded(cachedPath)) {
-                toRemove.push(cachedPath);
-            }
-        }
+        const toRemove = this.getStaleCachedPaths(new Set(allFiles.map(f => f.path)));
 
         let touched = 0;
         for (const file of toUpdate) {
@@ -667,6 +661,16 @@ export class ScriptureIndexer {
         }
 
         return touched;
+    }
+
+    getStaleCachedPaths(vaultPaths: Set<string>): string[] {
+        const stale: string[] = [];
+        for (const cachedPath of Object.keys(this.data.fileCache)) {
+            if (!vaultPaths.has(cachedPath) || this.isExcluded(cachedPath)) {
+                stale.push(cachedPath);
+            }
+        }
+        return stale;
     }
 
     async rescanForChanges(): Promise<number> {
