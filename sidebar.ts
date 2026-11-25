@@ -322,6 +322,57 @@ export class ConcordanceView extends ItemView {
         this.buildView();
     }
 
+    private refMatchesQuery(ref: ReferenceGroup, normalizedQuery: string): boolean {
+        const searchText = ref._searchText || ref.formattedText || ref.referenceKey;
+        return this.normalizeForSearch(searchText).includes(normalizedQuery);
+    }
+
+    private getChapterCounts(chapter: ChapterGroup): { refs: number; files: number } {
+        if (!this.searchQuery) {
+            return { refs: chapter.totalReferences, files: chapter.totalFiles };
+        }
+        const query = this.normalizeForSearch(this.searchQuery);
+        const files = new Set<string>();
+        let refs = 0;
+        for (const ref of chapter.references) {
+            if (!this.refMatchesQuery(ref, query)) continue;
+            refs++;
+            for (const f of ref.files) files.add(f.path);
+        }
+        return { refs, files: files.size };
+    }
+
+    private getBookCounts(book: BookGroup): { refs: number; files: number } {
+        if (!this.searchQuery) {
+            return { refs: book.totalReferences, files: book.totalFiles };
+        }
+        const query = this.normalizeForSearch(this.searchQuery);
+        const files = new Set<string>();
+        let refs = 0;
+        for (const chapter of book.chapters) {
+            for (const ref of chapter.references) {
+                if (!this.refMatchesQuery(ref, query)) continue;
+                refs++;
+                for (const f of ref.files) files.add(f.path);
+            }
+        }
+        return { refs, files: files.size };
+    }
+
+    private formatCounts(counts: { refs: number; files: number }): string {
+        return ` (${counts.refs} refs, ${counts.files} files)`;
+    }
+
+    private updateBookCountLabel(bookEl: HTMLElement, book: BookGroup): void {
+        const el = bookEl.querySelector('.conversum-book-counts');
+        if (el) el.textContent = this.formatCounts(this.getBookCounts(book));
+    }
+
+    private updateChapterCountLabel(chapterEl: HTMLElement, chapter: ChapterGroup): void {
+        const el = chapterEl.querySelector('.conversum-chapter-counts');
+        if (el) el.textContent = this.formatCounts(this.getChapterCounts(chapter));
+    }
+
     private getVisibleCount(): number {
         if (!this.searchQuery) return this.totalRefs;
         let count = 0;
@@ -348,7 +399,7 @@ export class ConcordanceView extends ItemView {
             toggle.textContent = book.expanded ? '▼' : '▶';
             const label = header.createSpan({ cls: 'conversum-book-label' });
             label.createSpan({ text: book.bookName, cls: 'conversum-book-name' });
-            label.createSpan({ text: ` (${book.totalReferences} refs, ${book.totalFiles} files)`, cls: 'conversum-book-counts' });
+            label.createSpan({ text: this.formatCounts(this.getBookCounts(book)), cls: 'conversum-book-counts' });
             header.addEventListener('click', () => {
                 this.toggleBook(book.bookId);
             });
@@ -383,7 +434,7 @@ export class ConcordanceView extends ItemView {
                 chapterName = `Chapter ${chapter.chapter}`;
             }
             label.createSpan({ text: chapterName, cls: 'conversum-chapter-name' });
-            label.createSpan({ text: ` (${chapter.totalReferences} refs, ${chapter.totalFiles} files)`, cls: 'conversum-chapter-counts' });
+            label.createSpan({ text: this.formatCounts(this.getChapterCounts(chapter)), cls: 'conversum-chapter-counts' });
             header.addEventListener('click', () => {
                 this.toggleChapter(bookId, chapter.chapter);
             });
@@ -546,6 +597,7 @@ export class ConcordanceView extends ItemView {
                 const bookEl = this.resultsContainer.querySelector(`.conversum-book[data-book-id="${book.bookId}"]`) as HTMLElement;
                 if (!bookEl) continue;
                 bookEl.removeClass('conversum-hidden');
+                this.updateBookCountLabel(bookEl, book);
                 const chaptersContainer = bookEl.querySelector('.conversum-chapters') as HTMLElement;
                 if (chaptersContainer) {
                     const shouldShow = this.expandedBooks.has(book.bookId);
@@ -562,6 +614,7 @@ export class ConcordanceView extends ItemView {
                         if (!chapterEl) continue;
                         const isExpanded = this.expandedChapters.has(chapterKey);
                         chapterEl.removeClass('conversum-hidden');
+                        this.updateChapterCountLabel(chapterEl, chapter);
                         const refsContainer = chapterEl.querySelector('.conversum-references') as HTMLElement;
                         if (refsContainer) {
                             if (isExpanded) {
@@ -599,6 +652,7 @@ export class ConcordanceView extends ItemView {
             for (const chapter of book.chapters) {
                 const chapterKey = `${book.bookId}:${chapter.chapter}`;
                 const chapterEl = bookChaptersContainer?.querySelector(`.conversum-chapter[data-chapter-key="${chapterKey}"]`) as HTMLElement;
+                if (chapterEl) this.updateChapterCountLabel(chapterEl, chapter);
                 let chapterHasMatch = false;
                 const matchingRefs: ReferenceGroup[] = [];
                 for (const ref of chapter.references) {
@@ -635,6 +689,7 @@ export class ConcordanceView extends ItemView {
                     }
                 }
             }
+            this.updateBookCountLabel(bookEl, book);
             if (bookHasMatch) {
                 bookEl.removeClass('conversum-hidden');
                 this.expandedBooks.add(book.bookId);
