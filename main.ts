@@ -227,7 +227,7 @@ export default class ConversumPlugin extends Plugin {
         const freshData = this.db.getData();
         const freshFileCache = freshData.fileCache || {};
         for (const cachedPath of Object.keys(freshFileCache)) {
-            if (!vaultPaths.has(cachedPath)) {
+            if (!vaultPaths.has(cachedPath) || this.indexer.isExcluded(cachedPath)) {
                 await this.indexer.removeFile(cachedPath);
             }
         }
